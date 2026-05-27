@@ -239,14 +239,6 @@ onMounted(() => {
         <button @click="handleDownload('xlsx')" :disabled="downloading === 'xlsx' || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
           {{ downloading === 'xlsx' ? 'Gerando...' : 'Gerar XLSX' }}
         </button>
-        <a v-if="jsonCruReport?.filePath" :href="`${apiBaseUrl}${jsonCruReport.filePath}`" target="_blank"
-          class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          Baixar JSON Cru
-        </a>
-        <a v-if="jsonTratadoReport?.filePath" :href="`${apiBaseUrl}${jsonTratadoReport.filePath}`" target="_blank"
-          class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          Baixar JSON Tratado
-        </a>
       </div>
       <p v-if="!isProcessed" class="mt-2 text-xs text-yellow-600">
         Processe o arquivo com IA antes de gerar relatórios.
@@ -260,7 +252,6 @@ onMounted(() => {
         </button>
       </div>
     </div>
-
     <div v-if="processResult" class="rounded-xl border border-gray-200 bg-white p-5">
       <h2 class="mb-4 text-lg font-semibold text-gray-800">Resultado do Processamento</h2>
       <div class="mb-4 flex gap-4">
@@ -315,17 +306,6 @@ onMounted(() => {
           </ul>
         </div>
 
-        <!-- Botoes -->
-        <div class="mt-3 flex flex-wrap gap-2">
-          <button @click="showTreatedJson = !showTreatedJson"
-            class="text-xs text-[var(--color-primary)] hover:underline">
-            {{ showTreatedJson ? 'Ocultar' : 'Ver' }} JSON completo
-          </button>
-          <button @click="downloadJson(getMemorialData(), `${file.originalName}_memorial.json`)"
-            class="text-xs text-[var(--color-primary)] hover:underline">
-            Baixar JSON Tratado
-          </button>
-        </div>
         <pre v-if="showTreatedJson" class="mt-3 max-h-96 overflow-auto rounded-lg bg-gray-50 p-4 text-xs text-gray-700">{{ JSON.stringify(getMemorialData(), null, 2) }}</pre>
       </template>
 
