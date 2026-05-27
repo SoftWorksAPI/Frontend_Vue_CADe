@@ -27,7 +27,7 @@ async function loadFiles() {
     files.value = data.files || []
     totalPages.value = data.pagination?.pages || 1
   } catch {
-    notify.error('Erro ao carregar arquivos')
+    notify.error('Erro ao carregar projetos')
   } finally {
     loading.value = false
   }
@@ -38,13 +38,13 @@ async function handleUpload() {
   uploading.value = true
   try {
     await uploadFile(selectedFile.value, description.value || undefined)
-    notify.success('Arquivo enviado com sucesso')
+    notify.success('Projeto enviado com sucesso')
     showUpload.value = false
     selectedFile.value = null
     description.value = ''
     await loadFiles()
   } catch (err: any) {
-    notify.error(err.response?.data?.message || 'Erro ao enviar arquivo')
+    notify.error(err.response?.data?.message || 'Erro ao enviar projeto')
   } finally {
     uploading.value = false
   }
@@ -54,11 +54,11 @@ async function handleDelete() {
   if (!deleteTarget.value) return
   try {
     await deleteFile(deleteTarget.value.id)
-    notify.success('Arquivo deletado com sucesso')
+    notify.success('Projeto deletado com sucesso')
     deleteTarget.value = null
     await loadFiles()
   } catch {
-    notify.error('Erro ao deletar arquivo')
+    notify.error('Erro ao deletar projeto')
   }
 }
 
@@ -78,18 +78,18 @@ onMounted(loadFiles)
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-gray-900">Arquivos DXF</h1>
+      <h1 class="text-2xl font-bold text-gray-900">Projetos</h1>
       <button @click="showUpload = !showUpload"
         class="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white hover:bg-[var(--color-primary-light)]">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
-        Enviar Arquivo
+        Novo Projeto
       </button>
     </div>
 
     <div v-if="showUpload" class="rounded-xl border border-gray-200 bg-white p-6">
-      <h2 class="mb-4 text-lg font-semibold">Upload de Arquivo DXF</h2>
+      <h2 class="mb-4 text-lg font-semibold">Upload de Projeto</h2>
       <FileUpload accept=".dxf" label="Arraste um arquivo DXF ou clique para selecionar" description="Apenas arquivos .dxf" @file-selected="(f) => selectedFile = f" />
       <div class="mt-4">
         <label class="block text-sm font-medium text-gray-700">Descricao (opcional)</label>
@@ -111,6 +111,7 @@ onMounted(loadFiles)
         <thead class="bg-gray-50 text-xs uppercase text-gray-600">
           <tr>
             <th class="px-4 py-3 font-semibold">Nome</th>
+            <th class="px-4 py-3 font-semibold">Responsavel</th>
             <th class="px-4 py-3 font-semibold">Tamanho</th>
             <th class="px-4 py-3 font-semibold">Descricao</th>
             <th class="px-4 py-3 font-semibold">Data</th>
@@ -118,10 +119,11 @@ onMounted(loadFiles)
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr v-if="files.length === 0">
-            <td colspan="4" class="px-4 py-8 text-center text-gray-400">Nenhum arquivo encontrado</td>
+            <td colspan="5" class="px-4 py-8 text-center text-gray-400">Nenhum projeto encontrado</td>
           </tr>
           <tr v-for="file in files" :key="file.id" class="cursor-pointer transition-colors hover:bg-gray-50" @click="router.push(`/files/${file.id}`)">
             <td class="px-4 py-3 font-medium text-gray-800">{{ file.originalName }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ file.User?.name || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ formatBytes(file.fileSize) }}</td>
             <td class="px-4 py-3 text-gray-600">{{ file.description || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ formatDate(file.createdAt) }}</td>
@@ -129,7 +131,7 @@ onMounted(loadFiles)
         </tbody>
       </table>
       <div v-if="totalPages > 1" class="border-t bg-gray-50 px-4 py-3 flex items-center justify-between text-sm text-gray-600">
-        <span>{{ files.length }} arquivo(s)</span>
+        <span>{{ files.length }} projeto(s)</span>
         <div class="flex gap-2">
           <button @click="page--; loadFiles()" :disabled="page <= 1" class="rounded border px-3 py-1 disabled:opacity-50">Anterior</button>
           <span class="flex items-center px-2">{{ page }} / {{ totalPages }}</span>
@@ -138,7 +140,7 @@ onMounted(loadFiles)
       </div>
     </div>
 
-    <ConfirmDialog v-if="deleteTarget" title="Deletar Arquivo"
+    <ConfirmDialog v-if="deleteTarget" title="Deletar Projeto"
       :message="`Tem certeza que deseja deletar '${deleteTarget.originalName}'?`" confirm-text="Deletar" :danger="true"
       @confirm="handleDelete" @cancel="deleteTarget = null" />
   </div>

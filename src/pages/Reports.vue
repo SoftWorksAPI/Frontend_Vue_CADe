@@ -57,6 +57,7 @@ onMounted(loadReports)
           <tr>
             <th class="px-4 py-3 font-semibold">Titulo</th>
             <th class="px-4 py-3 font-semibold">Projeto</th>
+            <th class="px-4 py-3 font-semibold">Enviado por</th>
             <th class="px-4 py-3 font-semibold">Formato</th>
             <th class="px-4 py-3 font-semibold">Confianca</th>
             <th class="px-4 py-3 font-semibold">Status</th>
@@ -65,12 +66,13 @@ onMounted(loadReports)
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr v-if="reports.length === 0">
-            <td colspan="6" class="px-4 py-8 text-center text-gray-400">Nenhum relatorio encontrado</td>
+            <td colspan="7" class="px-4 py-8 text-center text-gray-400">Nenhum relatorio encontrado</td>
           </tr>
           <tr v-for="report in reports" :key="report.id" class="cursor-pointer transition-colors hover:bg-gray-50"
             @click="router.push(`/reports/${report.id}`)">
             <td class="px-4 py-3 font-medium text-gray-800">{{ report.title }}</td>
             <td class="px-4 py-3 text-gray-600">{{ report.File?.originalName || '-' }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ report.User?.name || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ report.fileType?.toUpperCase() || '-' }}</td>
             <td class="px-4 py-3"><StatusBadge v-if="report.confianca" :status="report.confianca" /></td>
             <td class="px-4 py-3"><StatusBadge :status="report.status" /></td>
