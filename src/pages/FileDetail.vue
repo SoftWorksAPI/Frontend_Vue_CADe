@@ -23,6 +23,10 @@ const showDeleteConfirm = ref(false)
 const downloading = ref<string | null>(null)
 const showRawJson = ref(false)
 const showTreatedJson = ref(false)
+const showUploadReport = ref(false)
+const uploadingReport = ref(false)
+const reportFile = ref<File | null>(null)
+const reportTitle = ref('')
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -115,6 +119,23 @@ async function handleProcess() {
   } finally {
     processing.value = false
     setProcessingState(false)
+  }
+}
+
+async function handleUploadReport() {
+  if (!reportFile.value || !reportTitle.value) return
+  uploadingReport.value = true
+  try {
+    await createReport(reportFile.value, reportTitle.value, fileId)
+    notify.success('Relatório enviado com sucesso')
+    showUploadReport.value = false
+    reportFile.value = null
+    reportTitle.value = ''
+    await loadReports()
+  } catch (err: any) {
+    notify.error(err.response?.data?.message || 'Erro ao enviar relatório')
+  } finally {
+    uploadingReport.value = false
   }
 }
 
@@ -322,8 +343,46 @@ onMounted(() => {
       <MarkdownViewer v-else :key="file.id + '-' + file.updatedAt" :content="file.markdownContent || ''" />
     </div>
 
-    <div v-if="reports.length > 0" class="rounded-xl border border-gray-200 bg-white p-5">
-      <h2 class="mb-4 text-lg font-semibold text-gray-800">Relatorios Gerados</h2>
+    <!-- Reports section -->
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">Relatorios Gerados</h2>
+        <button @click="showUploadReport = !showUploadReport"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          Upload Manual
+        </button>
+      </div>
+
+      <!-- Upload form -->
+      <div v-if="showUploadReport" class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <h3 class="mb-3 text-sm font-semibold text-gray-800">Enviar relatório manualmente</h3>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label class="block text-xs font-medium text-gray-700">Título</label>
+            <input v-model="reportTitle" type="text" required
+              class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+              placeholder="Ex: Memorial Descritivo" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700">Arquivo</label>
+            <input type="file" @change="(e) => reportFile = (e.target as HTMLInputElement).files?.[0] || null"
+              class="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200" />
+          </div>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <button @click="handleUploadReport" :disabled="!reportFile || !reportTitle || uploadingReport"
+            class="rounded-lg bg-[var(--color-primary)] px-4 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+            {{ uploadingReport ? 'Enviando...' : 'Enviar' }}
+          </button>
+          <button @click="showUploadReport = false; reportFile = null; reportTitle = ''"
+            class="rounded-lg border border-gray-300 px-4 py-1.5 text-xs text-gray-600">
+            Cancelar
+          </button>
+        </div>
+      </div>
       <div class="space-y-2">
         <router-link v-for="report in reports" :key="report.id" :to="`/reports/${report.id}`"
           class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50">
