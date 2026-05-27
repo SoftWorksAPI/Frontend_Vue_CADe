@@ -250,6 +250,10 @@ onMounted(() => {
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div class="rounded-lg border border-gray-200 bg-white p-4">
+        <p class="text-xs font-medium text-gray-500">Responsavel</p>
+        <p class="mt-1 text-lg font-semibold">{{ file.User?.name || '-' }}</p>
+      </div>
+      <div class="rounded-lg border border-gray-200 bg-white p-4">
         <p class="text-xs font-medium text-gray-500">Tamanho</p>
         <p class="mt-1 text-lg font-semibold">{{ formatBytes(file.fileSize) }}</p>
       </div>
@@ -402,7 +406,7 @@ onMounted(() => {
           @click="router.push(`/reports/${report.id}`)">
           <div>
             <p class="text-sm font-medium text-gray-800">{{ report.title }}</p>
-            <p class="text-xs text-gray-400">{{ report.fileType?.toUpperCase() }} - {{ formatDate(report.createdAt) }}</p>
+            <p class="text-xs text-gray-400">{{ report.User?.name || 'Sistema' }} - {{ report.fileType?.toUpperCase() }} - {{ formatDate(report.createdAt) }}</p>
           </div>
           <div class="flex items-center gap-2">
             <StatusBadge v-if="report.confianca" :status="report.confianca" />

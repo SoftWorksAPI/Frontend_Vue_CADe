@@ -47,7 +47,7 @@ function formatDate(date: string): string {
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div class="rounded-xl border border-gray-200 bg-white p-5">
-        <p class="text-sm font-medium text-gray-500">Arquivos DXF</p>
+        <p class="text-sm font-medium text-gray-500">Projetos</p>
         <p class="mt-1 text-3xl font-bold text-[var(--color-primary)]">{{ files.length }}</p>
       </div>
       <div class="rounded-xl border border-gray-200 bg-white p-5">
@@ -67,7 +67,7 @@ function formatDate(date: string): string {
     <div v-else class="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-gray-800">Arquivos Recentes</h2>
+          <h2 class="text-lg font-semibold text-gray-800">Projetos Recentes</h2>
           <router-link to="/files" class="text-sm text-[var(--color-primary)] hover:underline">Ver todos</router-link>
         </div>
         <div v-if="files.length === 0" class="py-8 text-center text-sm text-gray-400">Nenhum arquivo enviado</div>
