@@ -17,6 +17,6 @@ export async function register(email: string, password: string, name: string) {
 }
 
 export async function changePassword(id: number, newPassword: string, oldPassword?: string) {
-  const { data } = await api.patch('/users/change-password', { id, newPassword, oldPassword })
+  const { data } = await api.patch('/users/change-password', { id: String(id), newPassword, oldPassword })
   return data
 }

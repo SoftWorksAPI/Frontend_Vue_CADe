@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { changePassword } from '@/api/auth'
 import { useNotificationStore } from '@/stores/notifications'
+
+const router = useRouter()
 
 const auth = useAuthStore()
 const notify = useNotificationStore()
@@ -17,15 +20,18 @@ async function handleChangePassword() {
     notify.error('As senhas nao coincidem')
     return
   }
+  if (oldPassword.value && newPassword.value === oldPassword.value) {
+    notify.error('A nova senha nao pode ser igual a senha atual')
+    return
+  }
   if (!auth.user) return
 
   loading.value = true
   try {
     await changePassword(auth.user.id, newPassword.value, oldPassword.value || undefined)
-    notify.success('Senha alterada com sucesso')
-    oldPassword.value = ''
-    newPassword.value = ''
-    confirmPassword.value = ''
+    notify.success('Senha alterada com sucesso. Faca login novamente.')
+    auth.logout()
+    router.push('/login')
   } catch (err: any) {
     notify.error(err.response?.data?.message || 'Erro ao alterar senha')
   } finally {

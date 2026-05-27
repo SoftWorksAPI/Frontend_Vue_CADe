@@ -264,15 +264,15 @@ onMounted(loadNormFiles)
                   @click.stop>
                   Visualizar
                 </a>
-                <button @click="startEdit(nf)" class="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 transition">
+                <button v-if="auth.isAdmin" @click="startEdit(nf)" class="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 transition">
                   Editar
                 </button>
-                <button @click="handleToggleAtivo(nf)"
+                <button v-if="auth.isAdmin" @click="handleToggleAtivo(nf)"
                   class="rounded px-2 py-1 text-xs transition"
                   :class="nf.ativo ? 'text-yellow-600 hover:bg-yellow-50' : 'text-green-600 hover:bg-green-50'">
                   {{ nf.ativo ? 'Desativar' : 'Ativar' }}
                 </button>
-                <button @click="deleteTarget = nf" class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 transition">
+                <button v-if="auth.isAdmin" @click="deleteTarget = nf" class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 transition">
                   Deletar
                 </button>
               </div>
