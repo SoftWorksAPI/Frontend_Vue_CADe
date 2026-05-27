@@ -5,7 +5,7 @@ export async function listReports(fileId?: number): Promise<Report[]> {
   const params: Record<string, any> = {}
   if (fileId) params.fileId = fileId
   const { data } = await api.get('/reports', { params })
-  return data
+  return data.reports || data || []
 }
 
 export async function getReportById(id: number): Promise<Report> {

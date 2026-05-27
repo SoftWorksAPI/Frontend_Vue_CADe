@@ -6,26 +6,42 @@ export async function processFile(fileId: number): Promise<ProcessResult> {
   return data
 }
 
-export async function generatePdf(fileId: number, timeout = 180000): Promise<Blob> {
-  const { data } = await api.post(`/processing/${fileId}/relatorio/pdf`, null, {
+/**
+ * Helper para tratar respostas blob que podem conter erros JSON.
+ * O Axios com responseType: 'blob' lê erros como Blob, impossibilitando
+ * ler a mensagem de erro. Este helper faz o parse manualmente.
+ */
+async function requestBlob(url: string, timeout: number): Promise<Blob> {
+  const response = await api.post(url, null, {
     params: { timeout },
-    responseType: 'blob'
+    responseType: 'arraybuffer',
+    validateStatus: () => true,
   })
-  return data
+
+  if (response.status >= 200 && response.status < 300) {
+    return new Blob([response.data])
+  }
+
+  // Tentar parsear o erro como JSON
+  const decoder = new TextDecoder('utf-8')
+  const text = decoder.decode(response.data)
+  try {
+    const json = JSON.parse(text)
+    throw { response: { data: json, status: response.status } }
+  } catch (e: any) {
+    if (e.response) throw e
+    throw { response: { data: { message: text || `Erro HTTP ${response.status}` }, status: response.status } }
+  }
+}
+
+export async function generatePdf(fileId: number, timeout = 180000): Promise<Blob> {
+  return requestBlob(`/processing/${fileId}/relatorio/pdf`, timeout)
 }
 
 export async function generateMarkdown(fileId: number, timeout = 180000): Promise<Blob> {
-  const { data } = await api.post(`/processing/${fileId}/relatorio/markdown`, null, {
-    params: { timeout },
-    responseType: 'blob'
-  })
-  return data
+  return requestBlob(`/processing/${fileId}/relatorio/markdown`, timeout)
 }
 
 export async function generateXlsx(fileId: number, timeout = 180000): Promise<Blob> {
-  const { data } = await api.post(`/processing/${fileId}/relatorio/xlsx`, null, {
-    params: { timeout },
-    responseType: 'blob'
-  })
-  return data
+  return requestBlob(`/processing/${fileId}/relatorio/xlsx`, timeout)
 }
