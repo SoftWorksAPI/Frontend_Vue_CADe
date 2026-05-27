@@ -72,16 +72,26 @@ onMounted(loadHealth)
       <div class="rounded-xl border border-gray-200 bg-white p-6">
         <div class="mb-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-gray-800">RAG (ChromaDB)</h2>
-          <StatusBadge :status="rag?.status === 'ok' ? 'online' : 'offline'" />
+          <StatusBadge :status="rag?.status === 'online' ? 'online' : 'offline'" />
         </div>
-        <div v-if="rag?.status === 'ok'" class="space-y-3">
+        <div v-if="rag?.status === 'online'" class="space-y-3">
           <div class="flex justify-between">
             <span class="text-sm text-gray-500">Total de chunks</span>
-            <span class="text-sm font-medium">{{ rag.total_chunks ?? 0 }}</span>
+            <span class="text-sm font-medium">{{ rag.total_chunks }}</span>
+          </div>
+          <div>
+            <span class="text-sm text-gray-500">Normas indexadas ({{ rag.normas_indexadas?.length || 0 }})</span>
+            <div v-if="rag.normas_indexadas?.length" class="mt-2 flex flex-wrap gap-1.5">
+              <span v-for="norma in rag.normas_indexadas" :key="norma"
+                class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                {{ norma }}
+              </span>
+            </div>
+            <p v-else class="mt-1 text-sm text-gray-400">Nenhuma norma indexada</p>
           </div>
           <div class="flex justify-between">
-            <span class="text-sm text-gray-500">Normas indexadas</span>
-            <span class="text-sm font-medium">{{ rag.normas_indexadas ?? 0 }}</span>
+            <span class="text-sm text-gray-500">Caminho</span>
+            <span class="text-xs font-mono text-gray-600 max-w-[200px] truncate" :title="rag.caminho">{{ rag.caminho }}</span>
           </div>
         </div>
         <div v-else-if="rag?.erro" class="rounded-lg bg-red-50 p-4">

@@ -101,7 +101,8 @@ export interface HealthStatus {
 
 export interface RagStatus {
   status: string
-  total_chunks?: number
-  normas_indexadas?: number
+  total_chunks: number
+  normas_indexadas: string[]
+  caminho: string
   erro?: string
 }
