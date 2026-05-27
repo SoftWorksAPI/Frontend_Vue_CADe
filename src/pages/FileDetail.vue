@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getFileById, deleteFile } from '@/api/files'
-import { listReports } from '@/api/reports'
+import { listReports, createReport } from '@/api/reports'
 import { processFile, generatePdf, generateMarkdown, generateXlsx } from '@/api/processing'
 import { useNotificationStore } from '@/stores/notifications'
 import MarkdownViewer from '@/components/MarkdownViewer.vue'
@@ -58,6 +58,14 @@ function setProcessingState(value: boolean) {
     }
     localStorage.setItem(PROCESSING_KEY, JSON.stringify(map))
   } catch {}
+}
+
+async function loadReports() {
+  try {
+    reports.value = await listReports(fileId)
+  } catch {
+    // Silently fail
+  }
 }
 
 async function loadFile() {
@@ -153,6 +161,8 @@ async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
     a.click()
     URL.revokeObjectURL(url)
     notify.success(`Relatorio ${type.toUpperCase()} gerado com sucesso`)
+    // Recarregar lista de relatórios para aparecer o novo
+    await loadReports()
   } catch (err: any) {
     notify.error(err.message || `Erro ao gerar ${type.toUpperCase()}`)
   } finally {
