@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getFileById, deleteFile } from '@/api/files'
-import { listReports, createReport } from '@/api/reports'
+import { listReports, createReport, deleteReport } from '@/api/reports'
 import { processFile, generatePdf, generateMarkdown, generateXlsx } from '@/api/processing'
 import { useNotificationStore } from '@/stores/notifications'
 import MarkdownViewer from '@/components/MarkdownViewer.vue'
@@ -25,6 +25,7 @@ const showRawJson = ref(false)
 const showTreatedJson = ref(false)
 const showUploadReport = ref(false)
 const uploadingReport = ref(false)
+const reportToDelete = ref<Report | null>(null)
 const reportFile = ref<File | null>(null)
 const reportTitle = ref('')
 
@@ -119,6 +120,18 @@ async function handleProcess() {
   } finally {
     processing.value = false
     setProcessingState(false)
+  }
+}
+
+async function handleDeleteReport() {
+  if (!reportToDelete.value) return
+  try {
+    await deleteReport(reportToDelete.value.id)
+    notify.success('Relatório deletado com sucesso')
+    reportToDelete.value = null
+    await loadReports()
+  } catch (err: any) {
+    notify.error(err.response?.data?.message || 'Erro ao deletar relatório')
   }
 }
 
@@ -384,8 +397,9 @@ onMounted(() => {
         </div>
       </div>
       <div class="space-y-2">
-        <router-link v-for="report in reports" :key="report.id" :to="`/reports/${report.id}`"
-          class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50">
+        <div v-for="report in reports" :key="report.id"
+          class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50 cursor-pointer"
+          @click="router.push(`/reports/${report.id}`)">
           <div>
             <p class="text-sm font-medium text-gray-800">{{ report.title }}</p>
             <p class="text-xs text-gray-400">{{ report.fileType?.toUpperCase() }} - {{ formatDate(report.createdAt) }}</p>
@@ -393,13 +407,27 @@ onMounted(() => {
           <div class="flex items-center gap-2">
             <StatusBadge v-if="report.confianca" :status="report.confianca" />
             <StatusBadge :status="report.status" />
+            <button @click.stop="reportToDelete = report"
+              class="rounded px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50 transition">
+              Deletar
+            </button>
           </div>
-        </router-link>
+        </div>
       </div>
     </div>
 
     <ConfirmDialog v-if="showDeleteConfirm" title="Deletar Arquivo"
       :message="`Tem certeza que deseja deletar '${file.originalName}'?`" confirm-text="Deletar" :danger="true"
       @confirm="handleDelete" @cancel="showDeleteConfirm = false" />
+
+    <ConfirmDialog v-if="reportToDelete"
+      :title="reportToDelete.fileType === 'json' ? 'Atenção' : 'Deletar Relatorio'"
+      :message="reportToDelete.fileType === 'json'
+        ? `O relatorio '${reportToDelete.title}' e um arquivo JSON utilizado pelo sistema de IA. Ao deleta-lo, sera necessario processar o arquivo novamente com IA para gerar novos relatorios. Deseja continuar?`
+        : `Tem certeza que deseja deletar o relatorio '${reportToDelete.title}'?`"
+      confirm-text="Deletar"
+      :danger="true"
+      @confirm="handleDeleteReport"
+      @cancel="reportToDelete = null" />
   </div>
 </template>
