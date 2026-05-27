@@ -17,6 +17,7 @@ const loading = ref(true)
 const showDeleteConfirm = ref(false)
 
 const reportId = Number(route.params.id)
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 async function loadReport() {
   loading.value = true
@@ -64,12 +65,18 @@ onMounted(loadReport)
           <span class="text-sm text-gray-500">{{ report.fileType?.toUpperCase() }}</span>
         </div>
       </div>
-      <button
-        @click="showDeleteConfirm = true"
-        class="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-      >
-        Deletar
-      </button>
+      <div class="flex gap-2">
+        <a v-if="report.filePath" :href="`${apiBaseUrl}${report.filePath}`" target="_blank"
+          class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          {{ report.fileType === 'pdf' ? 'Abrir PDF' : report.fileType === 'json' ? 'Abrir JSON' : 'Baixar' }}
+        </a>
+        <button
+          @click="showDeleteConfirm = true"
+          class="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+        >
+          Deletar
+        </button>
+      </div>
     </div>
 
     <!-- Info -->

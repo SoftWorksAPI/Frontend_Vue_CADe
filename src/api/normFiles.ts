@@ -25,6 +25,11 @@ export async function getNormFileById(id: number): Promise<NormFile> {
   return data
 }
 
+export async function updateNormFile(id: number, updates: { title?: string; category?: string }) {
+  const { data } = await api.patch(`/norm-files/${id}`, updates)
+  return data
+}
+
 export async function toggleAtivo(id: number) {
   const { data } = await api.patch(`/norm-files/${id}/toggle-ativo`)
   return data
