@@ -93,10 +93,6 @@ onMounted(loadHealth)
             </div>
             <p v-else class="mt-1 text-sm text-gray-400">Nenhuma norma indexada</p>
           </div>
-          <div class="flex justify-between">
-            <span class="text-sm text-gray-500">Caminho</span>
-            <span class="text-xs font-mono text-gray-600 max-w-[200px] truncate" :title="rag.caminho">{{ rag.caminho }}</span>
-          </div>
         </div>
         <div v-else-if="rag?.erro" class="rounded-lg bg-red-50 p-4">
           <p class="text-sm text-red-600">{{ rag.erro }}</p>
