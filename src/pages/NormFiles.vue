@@ -3,11 +3,13 @@ import { ref, onMounted } from 'vue'
 import { listNormFiles, uploadNormFile, toggleAtivo, deleteNormFile, updateNormFile } from '@/api/normFiles'
 import { ragSync } from '@/api/system'
 import { useNotificationStore } from '@/stores/notifications'
+import { useAuthStore } from '@/stores/auth'
 import FileUpload from '@/components/FileUpload.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import type { NormFile } from '@/types'
 
 const notify = useNotificationStore()
+const auth = useAuthStore()
 
 const normFiles = ref<NormFile[]>([])
 const loading = ref(true)
@@ -140,7 +142,7 @@ onMounted(loadNormFiles)
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-gray-900">Normas Tecnicas</h1>
-      <button @click="showUpload = !showUpload"
+      <button v-if="auth.isAdmin" @click="showUpload = !showUpload"
         class="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -243,11 +245,16 @@ onMounted(loadNormFiles)
             <td class="px-4 py-3 text-gray-600">{{ nf.category }}</td>
             <td class="px-4 py-3 text-gray-600">{{ nf.fileType?.toUpperCase() }}</td>
             <td class="px-4 py-3">
-              <button @click="handleToggleAtivo(nf)"
+              <button v-if="auth.isAdmin" @click="handleToggleAtivo(nf)"
                 :class="nf.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
                 class="rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors hover:opacity-80">
                 {{ nf.ativo ? 'Sim' : 'Nao' }}
               </button>
+              <span v-else
+                :class="nf.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                class="rounded-full px-2.5 py-0.5 text-xs font-medium">
+                {{ nf.ativo ? 'Sim' : 'Nao' }}
+              </span>
             </td>
             <td class="px-4 py-3 text-gray-600">{{ formatDate(nf.createdAt) }}</td>
             <td class="px-4 py-3">

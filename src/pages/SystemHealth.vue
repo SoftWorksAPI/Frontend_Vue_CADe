@@ -2,10 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { aiHealth, ragHealth, ragSync } from '@/api/system'
 import { useNotificationStore } from '@/stores/notifications'
+import { useAuthStore } from '@/stores/auth'
 import StatusBadge from '@/components/StatusBadge.vue'
 import type { HealthStatus, RagStatus } from '@/types'
 
 const notify = useNotificationStore()
+const auth = useAuthStore()
 
 const ai = ref<HealthStatus | null>(null)
 const rag = ref<RagStatus | null>(null)
@@ -15,9 +17,11 @@ const syncing = ref(false)
 async function loadHealth() {
   loading.value = true
   try {
-    const [aiRes, ragRes] = await Promise.allSettled([aiHealth(), ragHealth()])
-    if (aiRes.status === 'fulfilled') ai.value = aiRes.value
-    if (ragRes.status === 'fulfilled') rag.value = ragRes.value
+    const promises: Promise<any>[] = [aiHealth()]
+    if (auth.isAdmin) promises.push(ragHealth())
+    const results = await Promise.allSettled(promises)
+    if (results[0].status === 'fulfilled') ai.value = results[0].value
+    if (auth.isAdmin && results[1]?.status === 'fulfilled') rag.value = results[1].value
   } finally {
     loading.value = false
   }
@@ -69,7 +73,7 @@ onMounted(loadHealth)
         <div v-else class="text-sm text-gray-400">Servico indisponivel</div>
       </div>
 
-      <div class="rounded-xl border border-gray-200 bg-white p-6">
+      <div v-if="auth.isAdmin" class="rounded-xl border border-gray-200 bg-white p-6">
         <div class="mb-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-gray-800">RAG (ChromaDB)</h2>
           <StatusBadge :status="rag?.status === 'online' ? 'online' : 'offline'" />

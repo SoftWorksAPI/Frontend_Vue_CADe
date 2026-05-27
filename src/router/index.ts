@@ -50,14 +50,12 @@ const router = createRouter({
     {
       path: '/norm-files',
       name: 'norm-files',
-      component: () => import('@/pages/NormFiles.vue'),
-      meta: { admin: true }
+      component: () => import('@/pages/NormFiles.vue')
     },
     {
       path: '/system',
       name: 'system',
-      component: () => import('@/pages/SystemHealth.vue'),
-      meta: { admin: true }
+      component: () => import('@/pages/SystemHealth.vue')
     },
     {
       path: '/profile',
