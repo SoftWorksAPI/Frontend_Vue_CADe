@@ -10,7 +10,7 @@ export async function listReports(fileId?: number): Promise<Report[]> {
 
 export async function getReportById(id: number): Promise<Report> {
   const { data } = await api.get(`/reports/${id}`)
-  return data
+  return data.report || data
 }
 
 export async function deleteReport(id: number) {
