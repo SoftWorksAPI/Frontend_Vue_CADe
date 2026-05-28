@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getReportById, deleteReport } from '@/api/reports'
+import { getReportById, deleteReport, downloadReport } from '@/api/reports'
 import { useNotificationStore } from '@/stores/notifications'
 import MarkdownViewer from '@/components/MarkdownViewer.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -17,7 +17,6 @@ const loading = ref(true)
 const showDeleteConfirm = ref(false)
 
 const reportId = Number(route.params.id)
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 async function loadReport() {
   loading.value = true
@@ -38,6 +37,16 @@ async function handleDelete() {
     router.push('/reports')
   } catch {
     notify.error('Erro ao deletar relatorio')
+  }
+}
+
+async function handleDownload() {
+  try {
+    const ext = report.value?.fileType ? `.${report.value.fileType}` : ''
+    const filename = `${report.value?.title || 'relatorio'}${ext}`
+    await downloadReport(reportId, filename)
+  } catch {
+    notify.error('Erro ao baixar relatorio')
   }
 }
 
@@ -66,10 +75,10 @@ onMounted(loadReport)
         </div>
       </div>
       <div class="flex gap-2">
-        <a v-if="report.filePath" :href="`${apiBaseUrl}${report.filePath}`" target="_blank"
+        <button v-if="report.filePath" @click="handleDownload"
           class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-          {{ report.fileType === 'pdf' ? 'Abrir PDF' : report.fileType === 'json' ? 'Abrir JSON' : 'Baixar' }}
-        </a>
+          Baixar
+        </button>
         <button
           @click="showDeleteConfirm = true"
           class="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50"

@@ -28,3 +28,35 @@ export async function createReport(file: File, title: string, fileId: number): P
   })
   return data
 }
+
+export async function downloadReport(id: number, filename?: string): Promise<void> {
+  const response = await api.get(`/reports/${id}/download`, {
+    responseType: 'blob',
+  })
+
+  // Extrair nome do arquivo do header Content-Disposition
+  const contentDisposition = response.headers['content-disposition']
+  let downloadFilename = filename || 'relatorio'
+  if (contentDisposition) {
+    // Tentar extrair filename*= (UTF-8) primeiro
+    const utf8Match = contentDisposition.match(/filename\*=UTF-8''(.+)/i)
+    if (utf8Match) {
+      downloadFilename = decodeURIComponent(utf8Match[1])
+    } else {
+      // Fallback para filename="..."
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/)
+      if (match) downloadFilename = match[1].trim()
+    }
+  }
+
+  // Criar link temporario e clicar para download
+  const blob = new Blob([response.data], { type: response.headers['content-type'] })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = downloadFilename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}

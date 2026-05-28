@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { sendChatMessage } from '@/api/chat'
 import { useNotificationStore } from '@/stores/notifications'
 import MarkdownViewer from '@/components/MarkdownViewer.vue'
@@ -14,10 +14,17 @@ const MAX_MSG_CHARS = 500
 
 const notify = useNotificationStore()
 
+interface ChatReferencia {
+  tipo: string
+  itens: string[]
+}
+
 const messages = ref<ChatMessage[]>([])
 const input = ref('')
 const loading = ref(false)
 const messagesContainer = ref<HTMLElement | null>(null)
+const sugestoes = ref<string[]>([])
+const referencias = ref<ChatReferencia[]>([])
 
 const messageCount = computed(() => messages.value.length)
 const inputChars = computed(() => input.value.length)
@@ -38,6 +45,8 @@ async function sendMessage() {
   const question = input.value.trim()
   input.value = ''
   loading.value = true
+  sugestoes.value = []
+  referencias.value = []
 
   await nextTick()
   scrollToBottom()
@@ -49,7 +58,15 @@ async function sendMessage() {
     }))
 
     const response = await sendChatMessage(props.fileId, question, historico)
+
     messages.value.push({ role: 'assistant', content: response.resposta })
+
+    if (response.sugestoes) {
+      sugestoes.value = response.sugestoes
+    }
+    if (response.referencias) {
+      referencias.value = response.referencias
+    }
 
     await nextTick()
     scrollToBottom()
@@ -62,6 +79,11 @@ async function sendMessage() {
   }
 }
 
+function useSugestao(sugestao: string) {
+  input.value = sugestao
+  sendMessage()
+}
+
 function scrollToBottom() {
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
@@ -70,6 +92,8 @@ function scrollToBottom() {
 
 function clearChat() {
   messages.value = []
+  sugestoes.value = []
+  referencias.value = []
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -123,6 +147,18 @@ function handleKeydown(e: KeyboardEvent) {
           <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
         <p class="text-xs">Faca uma pergunta sobre este projeto</p>
+
+        <!-- Sugestoes iniciais -->
+        <div v-if="sugestoes.length > 0" class="mt-4 flex flex-wrap justify-center gap-2">
+          <button
+            v-for="s in sugestoes"
+            :key="s"
+            class="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100"
+            @click="useSugestao(s)"
+          >
+            {{ s }}
+          </button>
+        </div>
       </div>
 
       <!-- Mensagens -->
@@ -161,6 +197,44 @@ function handleKeydown(e: KeyboardEvent) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Referencias da ultima resposta -->
+    <div v-if="referencias.length > 0" class="mb-3">
+      <p class="text-[10px] font-medium text-gray-400 mb-1">Fontes consultadas:</p>
+      <div class="flex flex-wrap gap-1.5">
+        <template v-for="ref in referencias" :key="ref.tipo">
+          <span
+            v-for="item in ref.itens"
+            :key="item"
+            class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+            :class="ref.tipo === 'norma' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'"
+          >
+            <svg v-if="ref.tipo === 'norma'" class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <svg v-else class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            {{ item }}
+          </span>
+        </template>
+      </div>
+    </div>
+
+    <!-- Sugestoes de proximas perguntas -->
+    <div v-if="sugestoes.length > 0 && messages.length > 0 && !loading" class="mb-3">
+      <p class="text-[10px] font-medium text-gray-400 mb-1">Sugestoes:</p>
+      <div class="flex flex-wrap gap-1.5">
+        <button
+          v-for="s in sugestoes"
+          :key="s"
+          class="rounded-full border border-gray-200 px-2.5 py-0.5 text-[11px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+          @click="useSugestao(s)"
+        >
+          {{ s }}
+        </button>
       </div>
     </div>
 
