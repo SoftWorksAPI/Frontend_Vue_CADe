@@ -115,7 +115,7 @@ function handleKeydown(e: KeyboardEvent) {
     <!-- Lista de mensagens -->
     <div
       ref="messagesContainer"
-      class="mb-4 max-h-80 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3"
+      class="mb-4 max-h-[40rem] overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3"
     >
       <!-- Empty state -->
       <div v-if="messages.length === 0" class="flex flex-col items-center justify-center py-8 text-gray-400">
