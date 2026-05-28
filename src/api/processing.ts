@@ -11,10 +11,11 @@ export async function processFile(fileId: number): Promise<ProcessResult> {
  * O Axios com responseType: 'blob' lê erros como Blob, impossibilitando
  * ler a mensagem de erro. Este helper faz o parse manualmente.
  */
-async function requestBlob(url: string): Promise<Blob> {
+async function requestBlob(url: string, timeoutMs: number = 300000): Promise<Blob> {
   const response = await api.post(url, {}, {
     responseType: 'arraybuffer',
     validateStatus: () => true,
+    timeout: timeoutMs,
   })
 
   if (response.status >= 200 && response.status < 300) {
@@ -33,14 +34,14 @@ async function requestBlob(url: string): Promise<Blob> {
   }
 }
 
-export async function generatePdf(fileId: number): Promise<Blob> {
-  return requestBlob(`/processing/${fileId}/relatorio/pdf`)
+export async function generatePdf(fileId: number, timeoutMs?: number): Promise<Blob> {
+  return requestBlob(`/processing/${fileId}/relatorio/pdf`, timeoutMs)
 }
 
-export async function generateMarkdown(fileId: number): Promise<Blob> {
-  return requestBlob(`/processing/${fileId}/relatorio/markdown`)
+export async function generateMarkdown(fileId: number, timeoutMs?: number): Promise<Blob> {
+  return requestBlob(`/processing/${fileId}/relatorio/markdown`, timeoutMs)
 }
 
-export async function generateXlsx(fileId: number): Promise<Blob> {
-  return requestBlob(`/processing/${fileId}/relatorio/xlsx`)
+export async function generateXlsx(fileId: number, timeoutMs?: number): Promise<Blob> {
+  return requestBlob(`/processing/${fileId}/relatorio/xlsx`, timeoutMs)
 }

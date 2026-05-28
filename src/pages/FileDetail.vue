@@ -29,6 +29,8 @@ const uploadingReport = ref(false)
 const reportToDelete = ref<Report | null>(null)
 const reportFile = ref<File | null>(null)
 const reportTitle = ref('')
+const showRetryConfirm = ref(false)
+const retryType = ref<'pdf' | 'markdown' | 'xlsx' | null>(null)
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -173,19 +175,20 @@ function getMemorialData(): any {
   }
 }
 
-async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
+async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx', isRetry = false) {
   downloading.value = type
+  const timeoutMs = isRetry ? 600000 : undefined // 10min no retry, 5min default
   try {
     let blob: Blob
     let filename: string
     if (type === 'pdf') {
-      blob = await generatePdf(fileId)
+      blob = await generatePdf(fileId, timeoutMs)
       filename = `${file.value?.originalName || 'relatorio'}.pdf`
     } else if (type === 'markdown') {
-      blob = await generateMarkdown(fileId)
+      blob = await generateMarkdown(fileId, timeoutMs)
       filename = `${file.value?.originalName || 'relatorio'}.md`
     } else {
-      blob = await generateXlsx(fileId)
+      blob = await generateXlsx(fileId, timeoutMs)
       filename = `${file.value?.originalName || 'relatorio'}.xlsx`
     }
 
@@ -196,13 +199,34 @@ async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
     a.click()
     URL.revokeObjectURL(url)
     notify.success(`Relatorio ${type.toUpperCase()} gerado com sucesso`)
-    // Recarregar lista de relatórios para aparecer o novo
     await loadReports()
   } catch (err: any) {
-    notify.error(err.message || `Erro ao gerar ${type.toUpperCase()}`)
+    const status = err?.response?.status
+    if (status === 500 && !isRetry) {
+      // Mostrar dialog de retry
+      retryType.value = type
+      showRetryConfirm.value = true
+    } else {
+      notify.error(err?.response?.data?.message || err.message || `Erro ao gerar ${type.toUpperCase()}`)
+    }
   } finally {
     downloading.value = null
   }
+}
+
+async function confirmRetry() {
+  if (retryType.value) {
+    showRetryConfirm.value = false
+    notify.info('Tentando novamente com timeout estendido...')
+    await handleDownload(retryType.value, true)
+    retryType.value = null
+  }
+}
+
+function cancelRetry() {
+  showRetryConfirm.value = false
+  retryType.value = null
+  notify.info('Geracao de relatorio cancelada')
 }
 
 async function handleDelete() {
@@ -440,5 +464,13 @@ onMounted(() => {
       :danger="true"
       @confirm="handleDeleteReport"
       @cancel="reportToDelete = null" />
+
+    <ConfirmDialog v-if="showRetryConfirm"
+      title="Erro ao gerar relatorio"
+      message="O servidor retornou um erro interno (500). Isso pode ter acontecido por timeout ou sobrecarga. Deseja tentar novamente com mais tempo de espera?"
+      confirm-text="Tentar novamente"
+      :danger="false"
+      @confirm="confirmRetry"
+      @cancel="cancelRetry" />
   </div>
 </template>
