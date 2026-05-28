@@ -106,3 +106,8 @@ export interface RagStatus {
   caminho: string
   erro?: string
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
