@@ -7,7 +7,6 @@ import type { ChatMessage } from '@/types'
 
 const props = defineProps<{
   fileId: number
-  isProcessed: boolean
 }>()
 
 const MAX_MESSAGES = 20
@@ -26,7 +25,6 @@ const isLimitReached = computed(() => messageCount.value >= MAX_MESSAGES)
 const isInputOverLimit = computed(() => inputChars.value > MAX_MSG_CHARS)
 const canSend = computed(() =>
   input.value.trim().length > 0 &&
-  props.isProcessed &&
   !loading.value &&
   !isLimitReached.value &&
   !isInputOverLimit.value
@@ -106,14 +104,6 @@ function handleKeydown(e: KeyboardEvent) {
       </button>
     </div>
 
-    <!-- Aviso se nao processado -->
-    <div
-      v-if="!isProcessed"
-      class="mb-4 rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-700"
-    >
-      Processe o arquivo com IA primeiro para usar o chat.
-    </div>
-
     <!-- Aviso de limite -->
     <div
       v-if="isLimitReached"
@@ -179,8 +169,8 @@ function handleKeydown(e: KeyboardEvent) {
       <div class="relative flex-1">
         <textarea
           v-model="input"
-          :disabled="!isProcessed || loading || isLimitReached"
-          :placeholder="!isProcessed ? 'Processe o arquivo primeiro...' : isLimitReached ? 'Limite atingido' : 'Digite sua pergunta...'"
+          :disabled="loading || isLimitReached"
+          :placeholder="isLimitReached ? 'Limite atingido' : 'Digite sua pergunta...'"
           rows="2"
           class="w-full resize-none rounded-lg border px-3 py-2 pr-16 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] disabled:bg-gray-100 disabled:text-gray-400"
           :class="isInputOverLimit ? 'border-red-400' : 'border-gray-300'"

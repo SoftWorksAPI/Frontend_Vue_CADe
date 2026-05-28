@@ -322,7 +322,7 @@ onMounted(() => {
     </div>
 
     <!-- Chat do Projeto -->
-    <ChatPanel :file-id="fileId" :is-processed="isProcessed" />
+    <ChatPanel v-if="isProcessed" :file-id="fileId" />
 
     <!-- Reports section -->
     <div class="rounded-xl border border-gray-200 bg-white p-5">
