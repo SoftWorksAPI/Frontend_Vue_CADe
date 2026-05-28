@@ -8,6 +8,7 @@ import { useNotificationStore } from '@/stores/notifications'
 import MarkdownViewer from '@/components/MarkdownViewer.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import ChatPanel from '@/components/ChatPanel.vue'
 import type { FileRecord, Report, ProcessResult } from '@/types'
 
 const route = useRoute()
@@ -320,45 +321,8 @@ onMounted(() => {
       <pre v-if="showTreatedJson && processResult.memorial_descritivo" class="mt-3 max-h-96 overflow-auto rounded-lg bg-gray-50 p-4 text-xs text-gray-700">{{ JSON.stringify(processResult.memorial_descritivo, null, 2) }}</pre>
     </div>
 
-    <div v-if="isProcessed" class="rounded-xl border border-gray-200 bg-white p-5">
-      <h2 class="mb-4 text-lg font-semibold text-gray-800">Memorial Descritivo</h2>
-
-      <template v-if="getMemorialData()">
-        <!-- Confianca -->
-        <div v-if="getMemorialData().confianca_analise" class="mb-4">
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Confianca da Analise</h3>
-          <StatusBadge :status="getMemorialData().confianca_analise" />
-        </div>
-
-        <!-- Observacoes Tecnicas -->
-        <div v-if="getMemorialData().observacoes_tecnicas?.length" class="mb-4">
-          <h3 class="text-sm font-semibold text-gray-700 mb-2">Observacoes Tecnicas</h3>
-          <ul class="space-y-1">
-            <li v-for="(obs, i) in getMemorialData().observacoes_tecnicas" :key="i"
-              class="flex items-start gap-2 text-sm text-gray-600">
-              <span class="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400"></span>
-              {{ obs }}
-            </li>
-          </ul>
-        </div>
-
-        <!-- Inconsistencias Detectadas -->
-        <div v-if="getMemorialData().inconsistencias_detectadas?.length" class="mb-4">
-          <h3 class="text-sm font-semibold text-red-700 mb-2">Inconsistencias Detectadas</h3>
-          <ul class="space-y-1">
-            <li v-for="(inc, i) in getMemorialData().inconsistencias_detectadas" :key="i"
-              class="flex items-start gap-2 text-sm text-red-600">
-              <span class="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400"></span>
-              {{ inc }}
-            </li>
-          </ul>
-        </div>
-
-        <pre v-if="showTreatedJson" class="mt-3 max-h-96 overflow-auto rounded-lg bg-gray-50 p-4 text-xs text-gray-700">{{ JSON.stringify(getMemorialData(), null, 2) }}</pre>
-      </template>
-
-      <MarkdownViewer v-else :key="file.id + '-' + file.updatedAt" :content="file.markdownContent || ''" />
-    </div>
+    <!-- Chat do Projeto -->
+    <ChatPanel :file-id="fileId" :is-processed="isProcessed" />
 
     <!-- Reports section -->
     <div class="rounded-xl border border-gray-200 bg-white p-5">
@@ -418,6 +382,46 @@ onMounted(() => {
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-if="isProcessed" class="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 class="mb-4 text-lg font-semibold text-gray-800">Memorial Descritivo</h2>
+
+      <template v-if="getMemorialData()">
+        <!-- Confianca -->
+        <div v-if="getMemorialData().confianca_analise" class="mb-4">
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">Confianca da Analise</h3>
+          <StatusBadge :status="getMemorialData().confianca_analise" />
+        </div>
+
+        <!-- Observacoes Tecnicas -->
+        <div v-if="getMemorialData().observacoes_tecnicas?.length" class="mb-4">
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Observacoes Tecnicas</h3>
+          <ul class="space-y-1">
+            <li v-for="(obs, i) in getMemorialData().observacoes_tecnicas" :key="i"
+              class="flex items-start gap-2 text-sm text-gray-600">
+              <span class="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400"></span>
+              {{ obs }}
+            </li>
+          </ul>
+        </div>
+
+        <!-- Inconsistencias Detectadas -->
+        <div v-if="getMemorialData().inconsistencias_detectadas?.length" class="mb-4">
+          <h3 class="text-sm font-semibold text-red-700 mb-2">Inconsistencias Detectadas</h3>
+          <ul class="space-y-1">
+            <li v-for="(inc, i) in getMemorialData().inconsistencias_detectadas" :key="i"
+              class="flex items-start gap-2 text-sm text-red-600">
+              <span class="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400"></span>
+              {{ inc }}
+            </li>
+          </ul>
+        </div>
+
+        <pre v-if="showTreatedJson" class="mt-3 max-h-96 overflow-auto rounded-lg bg-gray-50 p-4 text-xs text-gray-700">{{ JSON.stringify(getMemorialData(), null, 2) }}</pre>
+      </template>
+
+      <MarkdownViewer v-else :key="file.id + '-' + file.updatedAt" :content="file.markdownContent || ''" />
     </div>
 
     <ConfirmDialog v-if="showDeleteConfirm" title="Deletar Arquivo"
