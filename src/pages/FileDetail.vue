@@ -20,15 +20,12 @@ const reports = ref<Report[]>([])
 const loading = ref(true)
 const processResult = ref<ProcessResult | null>(null)
 const localProcessing = ref(false)
-const localGenerating = ref(new Set<string>())
+const localGenerating = ref<Record<string, boolean>>({})
 
 // Status: servidor OU acao local (para feedback imediato)
 const processing = computed(() => localProcessing.value || file.value?.processingStatus === 'processando')
-const generating = computed(() => localGenerating.value.size > 0 || file.value?.processingStatus === 'gerando')
+const generating = computed(() => Object.values(localGenerating.value).some(Boolean) || reports.value.some(r => r.status === 'gerando'))
 
-function isGenerating(type: string) {
-  return localGenerating.value.has(type)
-}
 const showDeleteConfirm = ref(false)
 const showRawJson = ref(false)
 const showTreatedJson = ref(false)
@@ -65,8 +62,8 @@ async function loadFile() {
     file.value = fileData
     reports.value = reportsData || []
 
-    // Iniciar polling se status for nao-terminal
-    if (file.value?.processingStatus === 'processando' || file.value?.processingStatus === 'gerando') {
+    // Iniciar polling se algum Report esta gerando ou arquivo esta processando
+    if (file.value?.processingStatus === 'processando' || reports.value.some(r => r.status === 'gerando')) {
       startPolling()
     }
   } catch {
@@ -156,7 +153,8 @@ function getMemorialData(): any {
 
 function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
   // Fire-and-forget: dispara a geracao em background
-  localGenerating.value.add(type)
+  localGenerating.value[type] = true
+  startPolling()
   notify.info(`Gerando ${type.toUpperCase()}... Acompanhe o status na pagina de Relatorios.`)
 
   const generateFn = type === 'pdf' ? generatePdf : type === 'markdown' ? generateMarkdown : generateXlsx
@@ -168,7 +166,7 @@ function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
       notify.error(err?.response?.data?.message || `Erro ao gerar ${type.toUpperCase()}`)
     })
     .finally(async () => {
-      localGenerating.value.delete(type)
+      localGenerating.value[type] = false
       // Recarregar para atualizar status do servidor
       try {
         const [fileData, reportsData] = await Promise.all([
@@ -215,9 +213,11 @@ function startPolling() {
       file.value = fileData
       reports.value = reportsData || []
 
-      // Parar polling quando status for terminal
-      const status = file.value?.processingStatus
-      if (status === 'idle' || status === 'concluido' || status === 'erro') {
+      // Parar polling quando nada estiver processando/gerando
+      const fileProcessing = file.value?.processingStatus === 'processando'
+      const anyReportGenerating = reports.value.some(r => r.status === 'gerando')
+      const anyLocalGenerating = Object.values(localGenerating.value).some(Boolean)
+      if (!fileProcessing && !anyReportGenerating && !anyLocalGenerating) {
         stopPolling()
       }
     } catch {}
@@ -281,14 +281,14 @@ onUnmounted(stopPolling)
           <div v-else class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
           {{ processing ? 'Processando...' : 'Processar com IA' }}
         </button>
-        <button @click="handleDownload('pdf')" :disabled="isGenerating('pdf') || processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ isGenerating('pdf') ? 'Gerando...' : 'Gerar PDF' }}
+        <button @click="handleDownload('pdf')" :disabled="processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          Gerar PDF
         </button>
-        <button @click="handleDownload('markdown')" :disabled="isGenerating('markdown') || processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ isGenerating('markdown') ? 'Gerando...' : 'Gerar Markdown' }}
+        <button @click="handleDownload('markdown')" :disabled="processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          Gerar Markdown
         </button>
-        <button @click="handleDownload('xlsx')" :disabled="isGenerating('xlsx') || processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ isGenerating('xlsx') ? 'Gerando...' : 'Gerar XLSX' }}
+        <button @click="handleDownload('xlsx')" :disabled="processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          Gerar XLSX
         </button>
       </div>
       <p v-if="!isProcessed && !processing && !generating" class="mt-2 text-xs text-yellow-600">
