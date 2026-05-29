@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getFileById, deleteFile, replaceFile } from '@/api/files'
+import { getFileById, deleteFile, replaceFile, updateFileTitle } from '@/api/files'
 import { listReports, createReport, deleteReport, updateReportTitle } from '@/api/reports'
 import { processFile, generatePdf, generateMarkdown, generateXlsx } from '@/api/processing'
 import { useNotificationStore } from '@/stores/notifications'
@@ -38,6 +38,10 @@ const reportFile = ref<File | null>(null)
 const reportTitle = ref('')
 const showReplaceDxf = ref(false)
 const replacingDxf = ref(false)
+
+// Edicao de titulo do arquivo
+const editingFileTitle = ref(false)
+const editingFileTitleValue = ref('')
 
 // Edicao de titulo de report
 const editingReportId = ref<number | null>(null)
@@ -133,6 +137,29 @@ async function handleDeleteReport() {
     await loadReports()
   } catch (err: any) {
     notify.error(err.response?.data?.message || 'Erro ao deletar relatório')
+  }
+}
+
+function startEditFileTitle() {
+  editingFileTitle.value = true
+  editingFileTitleValue.value = file.value?.title || file.value?.originalName || ''
+}
+
+function cancelEditFileTitle() {
+  editingFileTitle.value = false
+  editingFileTitleValue.value = ''
+}
+
+async function saveEditFileTitle() {
+  if (!editingFileTitleValue.value.trim() || !file.value) return
+  try {
+    await updateFileTitle(fileId, editingFileTitleValue.value.trim())
+    file.value.title = editingFileTitleValue.value.trim()
+    notify.success('Titulo atualizado')
+    editingFileTitle.value = false
+    editingFileTitleValue.value = ''
+  } catch (err: any) {
+    notify.error(err.response?.data?.message || 'Erro ao atualizar titulo')
   }
 }
 
@@ -275,7 +302,22 @@ onMounted(loadFile)
     <div class="flex items-start justify-between">
       <div>
         <button @click="router.push('/files')" class="mb-2 text-sm text-gray-500 hover:text-gray-700">&larr; Voltar</button>
-        <h1 class="text-2xl font-bold text-gray-900">{{ file.originalName }}</h1>
+        <div v-if="editingFileTitle" class="flex items-center gap-2">
+          <input v-model="editingFileTitleValue"
+            @keyup.enter="saveEditFileTitle"
+            @keyup.escape="cancelEditFileTitle"
+            class="flex-1 rounded border border-blue-300 px-3 py-2 text-2xl font-bold focus:border-blue-500 focus:outline-none"
+            autofocus />
+          <button @click="saveEditFileTitle" class="rounded px-3 py-2 text-sm text-green-600 hover:bg-green-50">Salvar</button>
+          <button @click="cancelEditFileTitle" class="rounded px-3 py-2 text-sm text-gray-500 hover:bg-gray-100">Cancelar</button>
+        </div>
+        <div v-else class="group flex items-center gap-2">
+          <h1 class="text-2xl font-bold text-gray-900">{{ file.title || file.originalName }}</h1>
+          <button @click="startEditFileTitle"
+            class="hidden rounded px-2 py-1 text-xs text-gray-400 hover:text-blue-600 hover:bg-blue-50 group-hover:inline-block">
+            Editar
+          </button>
+        </div>
         <p class="mt-1 text-sm text-gray-500">{{ file.description || 'Sem descricao' }}</p>
       </div>
       <button @click="showDeleteConfirm = true" class="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50">Deletar</button>
@@ -293,6 +335,14 @@ onMounted(loadFile)
       <div class="rounded-lg border border-gray-200 bg-white p-4">
         <p class="text-xs font-medium text-gray-500">Enviado em</p>
         <p class="mt-1 text-lg font-semibold">{{ formatDate(file.createdAt) }}</p>
+      </div>
+      <div class="rounded-lg border border-gray-200 bg-white p-4">
+        <p class="text-xs font-medium text-gray-500">Ultima atualizacao</p>
+        <p class="mt-1 text-lg font-semibold">{{ formatDate(file.updatedAt) }}</p>
+      </div>
+      <div v-if="file.title" class="rounded-lg border border-gray-200 bg-white p-4">
+        <p class="text-xs font-medium text-gray-500">Arquivo original</p>
+        <p class="mt-1 text-sm font-medium text-gray-700 truncate">{{ file.originalName }}</p>
       </div>
       <div class="rounded-lg border border-gray-200 bg-white p-4">
         <p class="text-xs font-medium text-gray-500">Relatorios</p>

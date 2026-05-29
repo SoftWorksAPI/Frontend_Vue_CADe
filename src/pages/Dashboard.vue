@@ -82,7 +82,7 @@ function formatDate(date: string): string {
           <router-link v-for="file in files" :key="file.id" :to="`/files/${file.id}`"
             class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50">
             <div>
-              <p class="text-sm font-medium text-gray-800">{{ file.originalName }}</p>
+              <p class="text-sm font-medium text-gray-800">{{ file.title || file.originalName }}</p>
               <p class="text-xs text-gray-400">{{ formatDate(file.createdAt) }}</p>
             </div>
             <div class="flex items-center gap-2">

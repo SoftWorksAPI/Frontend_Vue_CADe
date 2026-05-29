@@ -26,6 +26,11 @@ export async function deleteFile(id: number) {
   return data
 }
 
+export async function updateFileTitle(fileId: number, title: string): Promise<FileRecord> {
+  const { data } = await api.patch(`/files/${fileId}/title`, { title })
+  return data.file
+}
+
 export async function replaceFile(fileId: number, file: File): Promise<FileRecord> {
   const formData = new FormData()
   formData.append('file', file)

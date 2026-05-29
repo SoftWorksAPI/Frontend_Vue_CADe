@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { listFiles, uploadFile, deleteFile } from '@/api/files'
+import { listFiles, uploadFile, deleteFile, updateFileTitle } from '@/api/files'
 import { useNotificationStore } from '@/stores/notifications'
 import { useAutoPaginate } from '@/composables/useAutoPaginate'
 import { useSSE } from '@/composables/useSSE'
@@ -23,6 +23,31 @@ const uploading = ref(false)
 const description = ref('')
 const selectedFile = ref<File | null>(null)
 const deleteTarget = ref<FileRecord | null>(null)
+const editingFileId = ref<number | null>(null)
+const editingTitle = ref('')
+
+function startEditTitle(file: FileRecord) {
+  editingFileId.value = file.id
+  editingTitle.value = file.title || file.originalName
+}
+
+function cancelEditTitle() {
+  editingFileId.value = null
+  editingTitle.value = ''
+}
+
+async function saveEditTitle(file: FileRecord) {
+  if (!editingTitle.value.trim()) return
+  try {
+    await updateFileTitle(file.id, editingTitle.value.trim())
+    file.title = editingTitle.value.trim()
+    notify.success('Titulo atualizado')
+    editingFileId.value = null
+    editingTitle.value = ''
+  } catch (err: any) {
+    notify.error(err.response?.data?.message || 'Erro ao atualizar titulo')
+  }
+}
 
 async function loadFiles(showSpinner = true) {
   if (showSpinner) loading.value = true
@@ -129,14 +154,31 @@ onMounted(loadFiles)
             <th class="px-4 py-3 font-semibold">Tamanho</th>
             <th class="px-4 py-3 font-semibold">Descricao</th>
             <th class="px-4 py-3 font-semibold">Data</th>
+            <th class="px-4 py-3 font-semibold">Atualizado</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr v-if="files.length === 0">
-            <td colspan="6" class="px-4 py-8 text-center text-gray-400">Nenhum projeto encontrado</td>
+            <td colspan="7" class="px-4 py-8 text-center text-gray-400">Nenhum projeto encontrado</td>
           </tr>
           <tr v-for="file in files" :key="file.id" class="cursor-pointer transition-colors hover:bg-gray-50" @click="router.push(`/files/${file.id}`)">
-            <td class="px-4 py-3 font-medium text-gray-800">{{ file.originalName }}</td>
+            <td class="px-4 py-3 font-medium text-gray-800">
+              <div v-if="editingFileId === file.id" class="flex items-center gap-1" @click.stop>
+                <input v-model="editingTitle"
+                  @keyup.enter="saveEditTitle(file)"
+                  @keyup.escape="cancelEditTitle"
+                  class="w-full rounded border border-blue-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                  autofocus />
+                <button @click="saveEditTitle(file)" class="rounded px-1.5 py-0.5 text-xs text-green-600 hover:bg-green-50">OK</button>
+              </div>
+              <div v-else class="group flex items-center gap-2">
+                <span class="truncate cursor-pointer" @click="router.push(`/files/${file.id}`)">{{ file.title || file.originalName }}</span>
+                <button @click.stop="startEditTitle(file)"
+                  class="hidden rounded px-1 py-0.5 text-xs text-gray-400 hover:text-blue-600 hover:bg-blue-50 group-hover:inline-block">
+                  Editar
+                </button>
+              </div>
+            </td>
             <td class="px-4 py-3">
               <StatusBadge v-if="file.processingStatus && file.processingStatus !== 'idle'" :status="file.processingStatus" />
               <span v-else class="text-xs text-gray-400">-</span>
@@ -145,6 +187,7 @@ onMounted(loadFiles)
             <td class="px-4 py-3 text-gray-600">{{ formatBytes(file.fileSize) }}</td>
             <td class="px-4 py-3 text-gray-600">{{ file.description || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ formatDate(file.createdAt) }}</td>
+            <td class="px-4 py-3 text-gray-500 text-xs">{{ formatDate(file.updatedAt) }}</td>
           </tr>
         </tbody>
       </table>

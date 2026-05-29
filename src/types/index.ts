@@ -9,6 +9,7 @@ export interface User {
 
 export interface FileRecord {
   id: number
+  title: string | null
   originalName: string
   filename: string
   filePath: string
