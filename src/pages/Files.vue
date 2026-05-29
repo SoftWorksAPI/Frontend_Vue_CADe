@@ -21,16 +21,16 @@ const description = ref('')
 const selectedFile = ref<File | null>(null)
 const deleteTarget = ref<FileRecord | null>(null)
 
-async function loadFiles() {
-  loading.value = true
+async function loadFiles(showSpinner = true) {
+  if (showSpinner) loading.value = true
   try {
     const data = await listFiles(page.value, 10)
     files.value = data.files || []
     totalPages.value = data.pagination?.pages || 1
   } catch {
-    notify.error('Erro ao carregar projetos')
+    if (showSpinner) notify.error('Erro ao carregar projetos')
   } finally {
-    loading.value = false
+    if (showSpinner) loading.value = false
   }
 }
 
@@ -77,7 +77,7 @@ let pollInterval: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   loadFiles()
-  pollInterval = setInterval(loadFiles, 10000)
+  pollInterval = setInterval(() => loadFiles(false), 10000)
 })
 
 onUnmounted(() => {

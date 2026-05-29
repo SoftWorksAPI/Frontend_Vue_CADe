@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { listReports, deleteReport } from '@/api/reports'
 import { useNotificationStore } from '@/stores/notifications'
@@ -14,14 +14,14 @@ const reports = ref<Report[]>([])
 const loading = ref(true)
 const deleteTarget = ref<Report | null>(null)
 
-async function loadReports() {
-  loading.value = true
+async function loadReports(showSpinner = true) {
+  if (showSpinner) loading.value = true
   try {
     reports.value = await listReports()
   } catch {
-    notify.error('Erro ao carregar relatorios')
+    if (showSpinner) notify.error('Erro ao carregar relatorios')
   } finally {
-    loading.value = false
+    if (showSpinner) loading.value = false
   }
 }
 
@@ -41,7 +41,19 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('pt-BR')
 }
 
-onMounted(loadReports)
+let pollInterval: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  loadReports()
+  pollInterval = setInterval(() => loadReports(false), 10000)
+})
+
+onUnmounted(() => {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
+})
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { listFiles } from '@/api/files'
 import { listReports } from '@/api/reports'
@@ -14,7 +14,8 @@ const reports = ref<Report[]>([])
 const aiStatus = ref<string>('offline')
 const loading = ref(true)
 
-onMounted(async () => {
+async function loadDashboard(showSpinner = true) {
+  if (showSpinner) loading.value = true
   try {
     const [filesRes, reportsRes, healthRes] = await Promise.allSettled([
       listFiles(1, 5),
@@ -26,7 +27,21 @@ onMounted(async () => {
     if (reportsRes.status === 'fulfilled') reports.value = (reportsRes.value || []).slice(0, 5)
     if (healthRes.status === 'fulfilled') aiStatus.value = healthRes.value.online ? 'online' : 'offline'
   } finally {
-    loading.value = false
+    if (showSpinner) loading.value = false
+  }
+}
+
+let pollInterval: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  loadDashboard()
+  pollInterval = setInterval(() => loadDashboard(false), 10000)
+})
+
+onUnmounted(() => {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
   }
 })
 
@@ -78,7 +93,10 @@ function formatDate(date: string): string {
               <p class="text-sm font-medium text-gray-800">{{ file.originalName }}</p>
               <p class="text-xs text-gray-400">{{ formatDate(file.createdAt) }}</p>
             </div>
-            <span class="text-xs text-gray-500">{{ formatBytes(file.fileSize) }}</span>
+            <div class="flex items-center gap-2">
+              <StatusBadge v-if="file.processingStatus && file.processingStatus !== 'idle'" :status="file.processingStatus" />
+              <span class="text-xs text-gray-500">{{ formatBytes(file.fileSize) }}</span>
+            </div>
           </router-link>
         </div>
       </div>
