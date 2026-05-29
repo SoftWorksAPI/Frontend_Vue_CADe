@@ -93,6 +93,8 @@ async function handleProcess() {
     // 202 — processamento disparado, resultado chega via SSE
     await processFile(fileId)
     notify.info('Processamento iniciado. Voce sera notificado quando concluir.')
+    // Recarregar para mostrar status "processando"
+    try { file.value = await getFileById(fileId) } catch {}
   } catch (err: any) {
     localProcessing.value = false
     notify.error(err.response?.data?.message || 'Erro ao processar arquivo')
@@ -155,8 +157,12 @@ function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
 
   const generateFn = type === 'pdf' ? generatePdf : type === 'markdown' ? generateMarkdown : generateXlsx
   generateFn(fileId)
-    .then(() => {
-      // 202 recebido — o resultado chega via SSE
+    .then(async () => {
+      // 202 recebido — recarregar reports para mostrar status "gerando"
+      try {
+        const reportsData = await listReports(fileId, 1, 100)
+        reports.value = reportsData?.reports || []
+      } catch {}
     })
     .catch((err: any) => {
       localGenerating.value[type] = false
