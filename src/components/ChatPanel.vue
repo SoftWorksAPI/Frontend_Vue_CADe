@@ -45,7 +45,6 @@ async function sendMessage() {
   const question = input.value.trim()
   input.value = ''
   loading.value = true
-  sugestoes.value = []
   referencias.value = []
 
   await nextTick()
@@ -61,9 +60,6 @@ async function sendMessage() {
 
     messages.value.push({ role: 'assistant', content: response.resposta })
 
-    if (response.sugestoes) {
-      sugestoes.value = response.sugestoes
-    }
     if (response.referencias) {
       referencias.value = response.referencias
     }
@@ -92,7 +88,6 @@ function scrollToBottom() {
 
 function clearChat() {
   messages.value = []
-  sugestoes.value = []
   referencias.value = []
 }
 
