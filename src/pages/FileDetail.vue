@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getFileById, deleteFile } from '@/api/files'
 import { listReports, createReport, deleteReport } from '@/api/reports'
 import { processFile, generatePdf, generateMarkdown, generateXlsx } from '@/api/processing'
 import { useNotificationStore } from '@/stores/notifications'
+import { useSSE } from '@/composables/useSSE'
 import MarkdownViewer from '@/components/MarkdownViewer.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -75,7 +76,7 @@ async function loadFile() {
 
     // Iniciar polling se algum Report esta gerando ou arquivo esta processando
     if (file.value?.processingStatus === 'processando' || reports.value.some(r => r.status === 'gerando')) {
-      startPolling()
+
     }
   } catch {
     notify.error('Erro ao carregar arquivo')
@@ -89,27 +90,12 @@ async function handleProcess() {
   processResult.value = null
   localProcessing.value = true
   try {
-    const result = await processFile(fileId)
-    processResult.value = result
-    if (result.sucesso) {
-      notify.success('Arquivo processado com sucesso')
-    } else {
-      notify.warning('Processamento concluido com avisos')
-    }
+    // 202 — processamento disparado, resultado chega via SSE
+    await processFile(fileId)
+    notify.info('Processamento iniciado. Voce sera notificado quando concluir.')
   } catch (err: any) {
-    notify.error(err.response?.data?.message || 'Erro ao processar arquivo')
-  } finally {
     localProcessing.value = false
-    // Recarregar para obter status atualizado do servidor
-    try {
-      const [fileData, reportsData] = await Promise.all([
-        getFileById(fileId),
-        listReports(fileId, 1, 100)
-      ])
-      file.value = fileData
-      reports.value = reportsData?.reports || []
-    } catch {}
-    stopPolling()
+    notify.error(err.response?.data?.message || 'Erro ao processar arquivo')
   }
 }
 
@@ -165,28 +151,16 @@ function getMemorialData(): any {
 function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
   // Fire-and-forget: dispara a geracao em background
   localGenerating.value[type] = true
-  startPolling()
-  notify.info(`Gerando ${type.toUpperCase()}... Acompanhe o status na pagina de Relatorios.`)
+  notify.info(`Gerando ${type.toUpperCase()}... Voce sera notificado quando concluir.`)
 
   const generateFn = type === 'pdf' ? generatePdf : type === 'markdown' ? generateMarkdown : generateXlsx
   generateFn(fileId)
-    .then(async () => {
-      notify.success(`Relatorio ${type.toUpperCase()} gerado com sucesso`)
+    .then(() => {
+      // 202 recebido — o resultado chega via SSE
     })
     .catch((err: any) => {
-      notify.error(err?.response?.data?.message || `Erro ao gerar ${type.toUpperCase()}`)
-    })
-    .finally(async () => {
       localGenerating.value[type] = false
-      // Recarregar para atualizar status do servidor
-      try {
-        const [fileData, reportsData] = await Promise.all([
-          getFileById(fileId),
-          listReports(fileId, 1, 100)
-        ])
-        file.value = fileData
-        reports.value = reportsData?.reports || []
-      } catch {}
+      notify.error(err?.response?.data?.message || `Erro ao iniciar geracao de ${type.toUpperCase()}`)
     })
 }
 
@@ -210,12 +184,9 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleString('pt-BR')
 }
 
-// Polling para atualizar status do servidor
-let pollInterval: ReturnType<typeof setInterval> | null = null
-
-function startPolling() {
-  if (pollInterval) return
-  pollInterval = setInterval(async () => {
+// SSE: recebe atualizacoes em tempo real do servidor
+useSSE(async (event, data) => {
+  if (data.fileId === fileId) {
     try {
       const [fileData, reportsData] = await Promise.all([
         getFileById(fileId),
@@ -224,27 +195,30 @@ function startPolling() {
       file.value = fileData
       reports.value = reportsData?.reports || []
 
-      // Parar polling quando nada estiver processando/gerando
-      const fileProcessing = file.value?.processingStatus === 'processando'
-      const anyReportGenerating = reports.value.some(r => r.status === 'gerando')
-      const anyLocalGenerating = Object.values(localGenerating.value).some(Boolean)
-      if (!fileProcessing && !anyReportGenerating && !anyLocalGenerating) {
-        stopPolling()
+      // Limpar estado local de geracao quando report e concluido/erro
+      if (event === 'report-updated' && data.reportId) {
+        const report = reports.value.find(r => r.id === data.reportId)
+        if (report) {
+          localGenerating.value[report.fileType] = false
+        }
+      }
+
+      if (event === 'file-updated' && data.status === 'concluido') {
+        localProcessing.value = false
+        notify.success('Processamento concluido!')
+      } else if (event === 'file-updated' && data.status === 'erro') {
+        localProcessing.value = false
+        notify.error('Processamento falhou')
+      } else if (event === 'report-updated' && data.status === 'concluido') {
+        notify.success('Relatorio gerado com sucesso!')
+      } else if (event === 'report-updated' && data.status === 'erro') {
+        notify.error('Geracao de relatorio falhou')
       }
     } catch {}
-  }, 5000)
-}
-
-function stopPolling() {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
   }
-}
+})
 
 onMounted(loadFile)
-
-onUnmounted(stopPolling)
 </script>
 
 <template>

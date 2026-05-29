@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { listFiles } from '@/api/files'
 import { listReports } from '@/api/reports'
 import { aiHealth } from '@/api/system'
+import { useSSE } from '@/composables/useSSE'
 import StatusBadge from '@/components/StatusBadge.vue'
 import type { FileRecord, Report } from '@/types'
 
@@ -31,19 +32,10 @@ async function loadDashboard(showSpinner = true) {
   }
 }
 
-let pollInterval: ReturnType<typeof setInterval> | null = null
+// SSE: atualizar dashboard quando houver mudancas
+useSSE(() => loadDashboard(false))
 
-onMounted(() => {
-  loadDashboard()
-  pollInterval = setInterval(() => loadDashboard(false), 10000)
-})
-
-onUnmounted(() => {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
-  }
-})
+onMounted(loadDashboard)
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'

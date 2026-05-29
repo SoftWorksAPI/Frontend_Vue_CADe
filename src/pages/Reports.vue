@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { listReports, deleteReport, downloadReport } from '@/api/reports'
 import { useNotificationStore } from '@/stores/notifications'
 import { useAutoPaginate } from '@/composables/useAutoPaginate'
+import { useSSE } from '@/composables/useSSE'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import type { Report } from '@/types'
@@ -67,19 +68,10 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('pt-BR')
 }
 
-let pollInterval: ReturnType<typeof setInterval> | null = null
+// SSE: atualizar lista quando houver mudancas
+useSSE(() => loadReports(false))
 
-onMounted(() => {
-  loadReports()
-  pollInterval = setInterval(() => loadReports(false), 10000)
-})
-
-onUnmounted(() => {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
-  }
-})
+onMounted(loadReports)
 </script>
 
 <template>

@@ -1,47 +1,30 @@
 import api from './client'
 import type { ProcessResult } from '@/types'
 
+/**
+ * Dispara processamento DXF (fire-and-forget).
+ * Retorna 202 imediatamente. O resultado chega via SSE.
+ */
 export async function processFile(fileId: number): Promise<ProcessResult> {
   const { data } = await api.post(`/processing/${fileId}/process`)
   return data
 }
 
 /**
- * Helper para tratar respostas blob que podem conter erros JSON.
- * O Axios com responseType: 'blob' lê erros como Blob, impossibilitando
- * ler a mensagem de erro. Este helper faz o parse manualmente.
+ * Dispara geracao de relatorio (fire-and-forget).
+ * Retorna 202 imediatamente. O resultado chega via SSE.
  */
-async function requestBlob(url: string, timeoutMs: number = 300000): Promise<Blob> {
-  const response = await api.post(url, {}, {
-    responseType: 'arraybuffer',
-    validateStatus: () => true,
-    timeout: timeoutMs,
-  })
-
-  if (response.status >= 200 && response.status < 300) {
-    return new Blob([response.data])
-  }
-
-  // Tentar parsear o erro como JSON
-  const decoder = new TextDecoder('utf-8')
-  const text = decoder.decode(response.data)
-  try {
-    const json = JSON.parse(text)
-    throw { response: { data: json, status: response.status } }
-  } catch (e: any) {
-    if (e.response) throw e
-    throw { response: { data: { message: text || `Erro HTTP ${response.status}` }, status: response.status } }
-  }
+export async function generatePdf(fileId: number): Promise<{ status: string; reportId: number }> {
+  const { data } = await api.post(`/processing/${fileId}/relatorio/pdf`)
+  return data
 }
 
-export async function generatePdf(fileId: number, timeoutMs?: number): Promise<Blob> {
-  return requestBlob(`/processing/${fileId}/relatorio/pdf`, timeoutMs)
+export async function generateMarkdown(fileId: number): Promise<{ status: string; reportId: number }> {
+  const { data } = await api.post(`/processing/${fileId}/relatorio/markdown`)
+  return data
 }
 
-export async function generateMarkdown(fileId: number, timeoutMs?: number): Promise<Blob> {
-  return requestBlob(`/processing/${fileId}/relatorio/markdown`, timeoutMs)
-}
-
-export async function generateXlsx(fileId: number, timeoutMs?: number): Promise<Blob> {
-  return requestBlob(`/processing/${fileId}/relatorio/xlsx`, timeoutMs)
+export async function generateXlsx(fileId: number): Promise<{ status: string; reportId: number }> {
+  const { data } = await api.post(`/processing/${fileId}/relatorio/xlsx`)
+  return data
 }
