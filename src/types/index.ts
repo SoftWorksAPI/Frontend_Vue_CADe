@@ -16,6 +16,7 @@ export interface FileRecord {
   userId: number
   description: string | null
   markdownContent: string | null
+  processingStatus: 'idle' | 'processando' | 'gerando' | 'concluido' | 'erro'
   createdAt: string
   updatedAt: string
   User?: User

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getFileById, deleteFile } from '@/api/files'
 import { listReports, createReport, deleteReport } from '@/api/reports'
@@ -18,8 +18,13 @@ const notify = useNotificationStore()
 const file = ref<FileRecord | null>(null)
 const reports = ref<Report[]>([])
 const loading = ref(true)
-const processing = ref(false)
 const processResult = ref<ProcessResult | null>(null)
+const localProcessing = ref(false)
+const localGenerating = ref(false)
+
+// Status: servidor OU acao local (para feedback imediato)
+const processing = computed(() => localProcessing.value || file.value?.processingStatus === 'processando')
+const generating = computed(() => localGenerating.value || file.value?.processingStatus === 'gerando')
 const showDeleteConfirm = ref(false)
 const downloading = ref<string | null>(null)
 const showRawJson = ref(false)
@@ -41,33 +46,6 @@ const jsonCruReport = computed(() => reports.value.find(r => r.fileType === 'jso
 const jsonTratadoReport = computed(() => reports.value.find(r => r.fileType === 'json' && r.filePath?.includes('json_tratado')))
 const isProcessed = computed(() => !!jsonCruReport.value && !!jsonTratadoReport.value)
 
-// Persistir estado de processamento no localStorage
-const PROCESSING_KEY = 'cade_processing'
-
-function getProcessingState(): boolean {
-  try {
-    const stored = localStorage.getItem(PROCESSING_KEY)
-    if (!stored) return false
-    const map = JSON.parse(stored)
-    return !!map[fileId]
-  } catch {
-    return false
-  }
-}
-
-function setProcessingState(value: boolean) {
-  try {
-    const stored = localStorage.getItem(PROCESSING_KEY)
-    const map = stored ? JSON.parse(stored) : {}
-    if (value) {
-      map[fileId] = Date.now()
-    } else {
-      delete map[fileId]
-    }
-    localStorage.setItem(PROCESSING_KEY, JSON.stringify(map))
-  } catch {}
-}
-
 async function loadReports() {
   try {
     reports.value = await listReports(fileId)
@@ -86,10 +64,9 @@ async function loadFile() {
     file.value = fileData
     reports.value = reportsData || []
 
-    // Se o arquivo ja foi processado (tem JSONs), limpar estado de processamento
-    if (isProcessed.value) {
-      setProcessingState(false)
-      processing.value = false
+    // Iniciar polling se status for nao-terminal
+    if (file.value?.processingStatus === 'processando' || file.value?.processingStatus === 'gerando') {
+      startPolling()
     }
   } catch {
     notify.error('Erro ao carregar arquivo')
@@ -100,9 +77,8 @@ async function loadFile() {
 }
 
 async function handleProcess() {
-  processing.value = true
-  setProcessingState(true)
   processResult.value = null
+  localProcessing.value = true
   try {
     const result = await processFile(fileId)
     processResult.value = result
@@ -111,18 +87,20 @@ async function handleProcess() {
     } else {
       notify.warning('Processamento concluido com avisos')
     }
-    // Recarregar dados sem mostrar loading spinner
-    const [fileData, reportsData] = await Promise.all([
-      getFileById(fileId),
-      listReports(fileId)
-    ])
-    file.value = fileData
-    reports.value = reportsData || []
   } catch (err: any) {
     notify.error(err.response?.data?.message || 'Erro ao processar arquivo')
   } finally {
-    processing.value = false
-    setProcessingState(false)
+    localProcessing.value = false
+    // Recarregar para obter status atualizado do servidor
+    try {
+      const [fileData, reportsData] = await Promise.all([
+        getFileById(fileId),
+        listReports(fileId)
+      ])
+      file.value = fileData
+      reports.value = reportsData || []
+    } catch {}
+    stopPolling()
   }
 }
 
@@ -177,6 +155,7 @@ function getMemorialData(): any {
 
 async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx', isRetry = false) {
   downloading.value = type
+  localGenerating.value = true
   const timeoutMs = isRetry ? 600000 : undefined // 10min no retry, 5min default
   try {
     let blob: Blob
@@ -200,6 +179,8 @@ async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx', isRetry = false
     URL.revokeObjectURL(url)
     notify.success(`Relatorio ${type.toUpperCase()} gerado com sucesso`)
     await loadReports()
+    // Recarregar arquivo para atualizar processingStatus
+    try { file.value = await getFileById(fileId) } catch {}
   } catch (err: any) {
     const status = err?.response?.status
     if (status === 500 && !isRetry) {
@@ -211,6 +192,7 @@ async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx', isRetry = false
     }
   } finally {
     downloading.value = null
+    localGenerating.value = false
   }
 }
 
@@ -249,13 +231,39 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleString('pt-BR')
 }
 
-onMounted(() => {
-  // Restaurar estado de processamento se o usuario saiu e voltou
-  if (getProcessingState()) {
-    processing.value = true
+// Polling para atualizar status do servidor
+let pollInterval: ReturnType<typeof setInterval> | null = null
+
+function startPolling() {
+  if (pollInterval) return
+  pollInterval = setInterval(async () => {
+    try {
+      const [fileData, reportsData] = await Promise.all([
+        getFileById(fileId),
+        listReports(fileId)
+      ])
+      file.value = fileData
+      reports.value = reportsData || []
+
+      // Parar polling quando status for terminal
+      const status = file.value?.processingStatus
+      if (status === 'idle' || status === 'concluido' || status === 'erro') {
+        stopPolling()
+      }
+    } catch {}
+  }, 5000)
+}
+
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
   }
-  loadFile()
-})
+}
+
+onMounted(loadFile)
+
+onUnmounted(stopPolling)
 </script>
 
 <template>
@@ -295,7 +303,7 @@ onMounted(() => {
     <div class="rounded-xl border border-gray-200 bg-white p-5">
       <h2 class="mb-4 text-lg font-semibold text-gray-800">Acoes</h2>
       <div class="flex flex-wrap gap-3">
-        <button @click="handleProcess" :disabled="processing"
+        <button @click="handleProcess" :disabled="processing || generating"
           class="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
           <svg v-if="!processing" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
@@ -313,16 +321,19 @@ onMounted(() => {
           {{ downloading === 'xlsx' ? 'Gerando...' : 'Gerar XLSX' }}
         </button>
       </div>
-      <p v-if="!isProcessed" class="mt-2 text-xs text-yellow-600">
+      <p v-if="!isProcessed && !processing && !generating" class="mt-2 text-xs text-yellow-600">
         Processe o arquivo com IA antes de gerar relatórios.
       </p>
-      <div v-if="processing && !isProcessed" class="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 flex items-center justify-between">
-        <p class="text-sm text-yellow-800">
-          O processamento anterior pode ter sido interrompido. Clique em "Processar com IA" para tentar novamente.
+      <p v-if="processing" class="mt-2 text-xs text-yellow-600">
+        Processando com IA... Acompanhe o status aqui.
+      </p>
+      <p v-if="generating" class="mt-2 text-xs text-blue-600">
+        Gerando relatório...
+      </p>
+      <div v-if="file.processingStatus === 'erro'" class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+        <p class="text-sm text-red-800">
+          O processamento anterior falhou. Clique em "Processar com IA" para tentar novamente.
         </p>
-        <button @click="processing = false; setProcessingState(false)" class="ml-3 flex-shrink-0 text-xs text-yellow-700 underline hover:text-yellow-900">
-          Limpar status
-        </button>
       </div>
     </div>
     <div v-if="processResult" class="rounded-xl border border-gray-200 bg-white p-5">

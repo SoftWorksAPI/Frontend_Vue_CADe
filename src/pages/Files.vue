@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { listFiles, uploadFile, deleteFile } from '@/api/files'
 import { useNotificationStore } from '@/stores/notifications'
 import FileUpload from '@/components/FileUpload.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import type { FileRecord } from '@/types'
 
 const router = useRouter()
@@ -72,7 +73,19 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('pt-BR')
 }
 
-onMounted(loadFiles)
+let pollInterval: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  loadFiles()
+  pollInterval = setInterval(loadFiles, 10000)
+})
+
+onUnmounted(() => {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
+})
 </script>
 
 <template>
@@ -111,6 +124,7 @@ onMounted(loadFiles)
         <thead class="bg-gray-50 text-xs uppercase text-gray-600">
           <tr>
             <th class="px-4 py-3 font-semibold">Nome</th>
+            <th class="px-4 py-3 font-semibold">Status</th>
             <th class="px-4 py-3 font-semibold">Responsavel</th>
             <th class="px-4 py-3 font-semibold">Tamanho</th>
             <th class="px-4 py-3 font-semibold">Descricao</th>
@@ -119,10 +133,14 @@ onMounted(loadFiles)
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr v-if="files.length === 0">
-            <td colspan="5" class="px-4 py-8 text-center text-gray-400">Nenhum projeto encontrado</td>
+            <td colspan="6" class="px-4 py-8 text-center text-gray-400">Nenhum projeto encontrado</td>
           </tr>
           <tr v-for="file in files" :key="file.id" class="cursor-pointer transition-colors hover:bg-gray-50" @click="router.push(`/files/${file.id}`)">
             <td class="px-4 py-3 font-medium text-gray-800">{{ file.originalName }}</td>
+            <td class="px-4 py-3">
+              <StatusBadge v-if="file.processingStatus && file.processingStatus !== 'idle'" :status="file.processingStatus" />
+              <span v-else class="text-xs text-gray-400">-</span>
+            </td>
             <td class="px-4 py-3 text-gray-600">{{ file.User?.name || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ formatBytes(file.fileSize) }}</td>
             <td class="px-4 py-3 text-gray-600">{{ file.description || '-' }}</td>
