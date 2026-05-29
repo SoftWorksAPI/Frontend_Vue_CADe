@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getFileById, deleteFile } from '@/api/files'
-import { listReports, createReport, deleteReport } from '@/api/reports'
+import { listReports, createReport, deleteReport, updateReportTitle } from '@/api/reports'
 import { processFile, generatePdf, generateMarkdown, generateXlsx } from '@/api/processing'
 import { useNotificationStore } from '@/stores/notifications'
 import { useSSE } from '@/composables/useSSE'
@@ -35,6 +35,10 @@ const uploadingReport = ref(false)
 const reportToDelete = ref<Report | null>(null)
 const reportFile = ref<File | null>(null)
 const reportTitle = ref('')
+
+// Edicao de titulo de report
+const editingReportId = ref<number | null>(null)
+const editingTitle = ref('')
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -110,6 +114,29 @@ async function handleDeleteReport() {
     await loadReports()
   } catch (err: any) {
     notify.error(err.response?.data?.message || 'Erro ao deletar relatório')
+  }
+}
+
+function startEditTitle(report: Report) {
+  editingReportId.value = report.id
+  editingTitle.value = report.title
+}
+
+function cancelEditTitle() {
+  editingReportId.value = null
+  editingTitle.value = ''
+}
+
+async function saveEditTitle(report: Report) {
+  if (!editingTitle.value.trim()) return
+  try {
+    await updateReportTitle(report.id, editingTitle.value.trim())
+    report.title = editingTitle.value.trim()
+    notify.success('Titulo atualizado')
+    editingReportId.value = null
+    editingTitle.value = ''
+  } catch (err: any) {
+    notify.error(err.response?.data?.message || 'Erro ao atualizar titulo')
   }
 }
 
@@ -359,13 +386,26 @@ onMounted(loadFile)
           <div v-for="report in paginatedReports" :key="report.id"
             class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50 cursor-pointer"
             @click="router.push(`/reports/${report.id}`)">
-            <div>
-              <p class="text-sm font-medium text-gray-800">{{ report.title }}</p>
+            <div class="min-w-0 flex-1">
+              <div v-if="editingReportId === report.id" class="flex items-center gap-2" @click.stop>
+                <input v-model="editingTitle"
+                  @keyup.enter="saveEditTitle(report)"
+                  @keyup.escape="cancelEditTitle"
+                  class="flex-1 rounded border border-blue-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                  autofocus />
+                <button @click="saveEditTitle(report)" class="rounded px-2 py-1 text-xs text-green-600 hover:bg-green-50">Salvar</button>
+                <button @click="cancelEditTitle" class="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">Cancelar</button>
+              </div>
+              <p v-else class="text-sm font-medium text-gray-800 truncate">{{ report.title }}</p>
               <p class="text-xs text-gray-400">{{ report.User?.name || 'Sistema' }} - {{ report.fileType?.toUpperCase() }} - {{ formatDate(report.createdAt) }}</p>
             </div>
             <div class="flex items-center gap-2">
               <StatusBadge v-if="report.confianca" :status="report.confianca" />
               <StatusBadge :status="report.status" />
+              <button v-if="report.status !== 'gerando'" @click.stop="startEditTitle(report)"
+                class="rounded px-1.5 py-0.5 text-xs text-blue-600 hover:bg-blue-50 transition">
+                Editar
+              </button>
               <button @click.stop="reportToDelete = report"
                 class="rounded px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50 transition">
                 Deletar

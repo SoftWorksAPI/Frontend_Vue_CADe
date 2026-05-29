@@ -16,6 +16,11 @@ export async function getReportById(id: number): Promise<Report> {
   return data.report || data
 }
 
+export async function updateReportTitle(id: number, title: string): Promise<Report> {
+  const { data } = await api.patch(`/reports/${id}/title`, { title })
+  return data.report
+}
+
 export async function deleteReport(id: number) {
   const { data } = await api.delete(`/reports/${id}`)
   return data

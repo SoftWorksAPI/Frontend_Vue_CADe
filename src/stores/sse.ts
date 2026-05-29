@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useNotificationStore } from './notifications'
+import { useAuthStore } from './auth'
 
 type EventCallback = (event: string, data: any) => void
 
@@ -24,13 +25,14 @@ export const useSSEStore = defineStore('sse', () => {
     source.addEventListener('file-updated', (e: MessageEvent) => {
       try {
         const data = JSON.parse(e.data)
-        // Notificar toast globalmente
-        if (data.status === 'concluido') {
-          notify.success('Processamento de projeto concluido!')
-        } else if (data.status === 'erro') {
-          notify.error('Processamento de projeto falhou')
+        const auth = useAuthStore()
+        const isMine = !data.userId || auth.user?.id === data.userId
+        const name = data.name ? ` "${data.name}"` : ''
+        if (isMine && data.status === 'concluido') {
+          notify.success(`Projeto${name} processado com sucesso!`)
+        } else if (isMine && data.status === 'erro') {
+          notify.error(`Processamento de${name} falhou`)
         }
-        // Notificar listeners inscritos
         listeners.forEach(cb => cb('file-updated', data))
       } catch {}
     })
@@ -38,13 +40,14 @@ export const useSSEStore = defineStore('sse', () => {
     source.addEventListener('report-updated', (e: MessageEvent) => {
       try {
         const data = JSON.parse(e.data)
-        // Notificar toast globalmente
-        if (data.status === 'concluido') {
-          notify.success('Relatorio gerado com sucesso!')
-        } else if (data.status === 'erro') {
-          notify.error('Geracao de relatorio falhou')
+        const auth = useAuthStore()
+        const isMine = !data.userId || auth.user?.id === data.userId
+        const name = data.name ? ` "${data.name}"` : ''
+        if (isMine && data.status === 'concluido') {
+          notify.success(`Relatorio${name} gerado com sucesso!`)
+        } else if (isMine && data.status === 'erro') {
+          notify.error(`Geracao de${name} falhou`)
         }
-        // Notificar listeners inscritos
         listeners.forEach(cb => cb('report-updated', data))
       } catch {}
     })

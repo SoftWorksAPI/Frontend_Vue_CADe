@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { listReports, deleteReport, downloadReport } from '@/api/reports'
+import { listReports, deleteReport, downloadReport, updateReportTitle } from '@/api/reports'
 import { useNotificationStore } from '@/stores/notifications'
 import { useAutoPaginate } from '@/composables/useAutoPaginate'
 import { useSSE } from '@/composables/useSSE'
@@ -18,6 +18,10 @@ const loading = ref(true)
 const deleteTarget = ref<Report | null>(null)
 const page = ref(1)
 const totalPages = ref(1)
+
+// Edicao de titulo
+const editingReportId = ref<number | null>(null)
+const editingTitle = ref('')
 
 async function loadReports(showSpinner = true) {
   if (showSpinner) loading.value = true
@@ -47,6 +51,29 @@ async function handleDelete() {
     await loadReports()
   } catch {
     notify.error('Erro ao deletar relatorio')
+  }
+}
+
+function startEditTitle(report: Report) {
+  editingReportId.value = report.id
+  editingTitle.value = report.title
+}
+
+function cancelEditTitle() {
+  editingReportId.value = null
+  editingTitle.value = ''
+}
+
+async function saveEditTitle(report: Report) {
+  if (!editingTitle.value.trim()) return
+  try {
+    await updateReportTitle(report.id, editingTitle.value.trim())
+    report.title = editingTitle.value.trim()
+    notify.success('Titulo atualizado')
+    editingReportId.value = null
+    editingTitle.value = ''
+  } catch (err: any) {
+    notify.error(err.response?.data?.message || 'Erro ao atualizar titulo')
   }
 }
 
@@ -101,7 +128,17 @@ onMounted(loadReports)
           </tr>
           <tr v-for="report in reports" :key="report.id" class="cursor-pointer transition-colors hover:bg-gray-50"
             @click="router.push(`/reports/${report.id}`)">
-            <td class="px-4 py-3 font-medium text-gray-800">{{ report.title }}</td>
+            <td class="px-4 py-3 font-medium text-gray-800">
+              <div v-if="editingReportId === report.id" class="flex items-center gap-1" @click.stop>
+                <input v-model="editingTitle"
+                  @keyup.enter="saveEditTitle(report)"
+                  @keyup.escape="cancelEditTitle"
+                  class="w-full rounded border border-blue-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                  autofocus />
+                <button @click="saveEditTitle(report)" class="rounded px-1.5 py-0.5 text-xs text-green-600 hover:bg-green-50">OK</button>
+              </div>
+              <span v-else class="truncate block max-w-[200px]">{{ report.title }}</span>
+            </td>
             <td class="px-4 py-3 text-gray-600">{{ report.File?.originalName || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ report.User?.name || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ report.fileType?.toUpperCase() || '-' }}</td>
@@ -109,13 +146,20 @@ onMounted(loadReports)
             <td class="px-4 py-3"><StatusBadge :status="report.status" /></td>
             <td class="px-4 py-3 text-gray-600">{{ formatDate(report.createdAt) }}</td>
             <td class="px-4 py-3">
-              <button v-if="report.filePath && (report.fileType === 'pdf' || report.fileType === 'xlsx' || report.fileType === 'md')"
-                @click.stop="handleDownload(report)"
-                :disabled="downloadingId === report.id"
-                class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                title="Baixar arquivo">
-                {{ downloadingId === report.id ? 'Baixando...' : 'Download' }}
-              </button>
+              <div class="flex items-center gap-1">
+                <button v-if="report.status !== 'gerando'" @click.stop="startEditTitle(report)"
+                  class="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                  title="Editar titulo">
+                  Editar
+                </button>
+                <button v-if="report.filePath && (report.fileType === 'pdf' || report.fileType === 'xlsx' || report.fileType === 'md')"
+                  @click.stop="handleDownload(report)"
+                  :disabled="downloadingId === report.id"
+                  class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  title="Baixar arquivo">
+                  {{ downloadingId === report.id ? 'Baixando...' : 'Download' }}
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
