@@ -209,16 +209,9 @@ useSSE(async (event, data) => {
         }
       }
 
-      if (event === 'file-updated' && data.status === 'concluido') {
+      // Limpar estado local de processamento
+      if (event === 'file-updated') {
         localProcessing.value = false
-        notify.success('Processamento concluido!')
-      } else if (event === 'file-updated' && data.status === 'erro') {
-        localProcessing.value = false
-        notify.error('Processamento falhou')
-      } else if (event === 'report-updated' && data.status === 'concluido') {
-        notify.success('Relatorio gerado com sucesso!')
-      } else if (event === 'report-updated' && data.status === 'erro') {
-        notify.error('Geracao de relatorio falhou')
       }
     } catch {}
   }
