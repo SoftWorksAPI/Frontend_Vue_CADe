@@ -20,13 +20,13 @@ const reports = ref<Report[]>([])
 const loading = ref(true)
 const processResult = ref<ProcessResult | null>(null)
 const localProcessing = ref(false)
-const localGenerating = ref(false)
+const localGenerating = ref<Record<string, boolean>>({})
 
 // Status: servidor OU acao local (para feedback imediato)
 const processing = computed(() => localProcessing.value || file.value?.processingStatus === 'processando')
-const generating = computed(() => localGenerating.value || file.value?.processingStatus === 'gerando')
+const generating = computed(() => Object.values(localGenerating.value).some(Boolean) || reports.value.some(r => r.status === 'gerando'))
+
 const showDeleteConfirm = ref(false)
-const downloading = ref<string | null>(null)
 const showRawJson = ref(false)
 const showTreatedJson = ref(false)
 const showUploadReport = ref(false)
@@ -34,21 +34,30 @@ const uploadingReport = ref(false)
 const reportToDelete = ref<Report | null>(null)
 const reportFile = ref<File | null>(null)
 const reportTitle = ref('')
-const showRetryConfirm = ref(false)
-const retryType = ref<'pdf' | 'markdown' | 'xlsx' | null>(null)
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 const fileId = Number(route.params.id)
+const reportsPerPage = ref(7)
+const reportPage = ref(1)
 
 // Verificar se o arquivo foi processado pela IA (tem JSON cru e tratado)
 const jsonCruReport = computed(() => reports.value.find(r => r.fileType === 'json' && r.filePath?.includes('json_cru')))
 const jsonTratadoReport = computed(() => reports.value.find(r => r.fileType === 'json' && r.filePath?.includes('json_tratado')))
 const isProcessed = computed(() => !!jsonCruReport.value && !!jsonTratadoReport.value)
 
+// Paginacao de reports no detalhe do arquivo
+const reportTotalPages = computed(() => Math.max(1, Math.ceil(reports.value.length / reportsPerPage.value)))
+const paginatedReports = computed(() => {
+  const start = (reportPage.value - 1) * reportsPerPage.value
+  return reports.value.slice(start, start + reportsPerPage.value)
+})
+
+
 async function loadReports() {
   try {
-    reports.value = await listReports(fileId)
+    const result = await listReports(fileId, 1, 100)
+    reports.value = result.reports
   } catch {
     // Silently fail
   }
@@ -59,13 +68,13 @@ async function loadFile() {
   try {
     const [fileData, reportsData] = await Promise.all([
       getFileById(fileId),
-      listReports(fileId)
+      listReports(fileId, 1, 100)
     ])
     file.value = fileData
-    reports.value = reportsData || []
+    reports.value = reportsData?.reports || []
 
-    // Iniciar polling se status for nao-terminal
-    if (file.value?.processingStatus === 'processando' || file.value?.processingStatus === 'gerando') {
+    // Iniciar polling se algum Report esta gerando ou arquivo esta processando
+    if (file.value?.processingStatus === 'processando' || reports.value.some(r => r.status === 'gerando')) {
       startPolling()
     }
   } catch {
@@ -95,10 +104,10 @@ async function handleProcess() {
     try {
       const [fileData, reportsData] = await Promise.all([
         getFileById(fileId),
-        listReports(fileId)
+        listReports(fileId, 1, 100)
       ])
       file.value = fileData
-      reports.value = reportsData || []
+      reports.value = reportsData?.reports || []
     } catch {}
     stopPolling()
   }
@@ -153,62 +162,32 @@ function getMemorialData(): any {
   }
 }
 
-async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx', isRetry = false) {
-  downloading.value = type
-  localGenerating.value = true
-  const timeoutMs = isRetry ? 600000 : undefined // 10min no retry, 5min default
-  try {
-    let blob: Blob
-    let filename: string
-    if (type === 'pdf') {
-      blob = await generatePdf(fileId, timeoutMs)
-      filename = `${file.value?.originalName || 'relatorio'}.pdf`
-    } else if (type === 'markdown') {
-      blob = await generateMarkdown(fileId, timeoutMs)
-      filename = `${file.value?.originalName || 'relatorio'}.md`
-    } else {
-      blob = await generateXlsx(fileId, timeoutMs)
-      filename = `${file.value?.originalName || 'relatorio'}.xlsx`
-    }
+function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
+  // Fire-and-forget: dispara a geracao em background
+  localGenerating.value[type] = true
+  startPolling()
+  notify.info(`Gerando ${type.toUpperCase()}... Acompanhe o status na pagina de Relatorios.`)
 
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-    notify.success(`Relatorio ${type.toUpperCase()} gerado com sucesso`)
-    await loadReports()
-    // Recarregar arquivo para atualizar processingStatus
-    try { file.value = await getFileById(fileId) } catch {}
-  } catch (err: any) {
-    const status = err?.response?.status
-    if (status === 500 && !isRetry) {
-      // Mostrar dialog de retry
-      retryType.value = type
-      showRetryConfirm.value = true
-    } else {
-      notify.error(err?.response?.data?.message || err.message || `Erro ao gerar ${type.toUpperCase()}`)
-    }
-  } finally {
-    downloading.value = null
-    localGenerating.value = false
-  }
-}
-
-async function confirmRetry() {
-  if (retryType.value) {
-    showRetryConfirm.value = false
-    notify.info('Tentando novamente com timeout estendido...')
-    await handleDownload(retryType.value, true)
-    retryType.value = null
-  }
-}
-
-function cancelRetry() {
-  showRetryConfirm.value = false
-  retryType.value = null
-  notify.info('Geracao de relatorio cancelada')
+  const generateFn = type === 'pdf' ? generatePdf : type === 'markdown' ? generateMarkdown : generateXlsx
+  generateFn(fileId)
+    .then(async () => {
+      notify.success(`Relatorio ${type.toUpperCase()} gerado com sucesso`)
+    })
+    .catch((err: any) => {
+      notify.error(err?.response?.data?.message || `Erro ao gerar ${type.toUpperCase()}`)
+    })
+    .finally(async () => {
+      localGenerating.value[type] = false
+      // Recarregar para atualizar status do servidor
+      try {
+        const [fileData, reportsData] = await Promise.all([
+          getFileById(fileId),
+          listReports(fileId, 1, 100)
+        ])
+        file.value = fileData
+        reports.value = reportsData?.reports || []
+      } catch {}
+    })
 }
 
 async function handleDelete() {
@@ -240,14 +219,16 @@ function startPolling() {
     try {
       const [fileData, reportsData] = await Promise.all([
         getFileById(fileId),
-        listReports(fileId)
+        listReports(fileId, 1, 100)
       ])
       file.value = fileData
-      reports.value = reportsData || []
+      reports.value = reportsData?.reports || []
 
-      // Parar polling quando status for terminal
-      const status = file.value?.processingStatus
-      if (status === 'idle' || status === 'concluido' || status === 'erro') {
+      // Parar polling quando nada estiver processando/gerando
+      const fileProcessing = file.value?.processingStatus === 'processando'
+      const anyReportGenerating = reports.value.some(r => r.status === 'gerando')
+      const anyLocalGenerating = Object.values(localGenerating.value).some(Boolean)
+      if (!fileProcessing && !anyReportGenerating && !anyLocalGenerating) {
         stopPolling()
       }
     } catch {}
@@ -311,14 +292,14 @@ onUnmounted(stopPolling)
           <div v-else class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
           {{ processing ? 'Processando...' : 'Processar com IA' }}
         </button>
-        <button @click="handleDownload('pdf')" :disabled="downloading === 'pdf' || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ downloading === 'pdf' ? 'Gerando...' : 'Gerar PDF' }}
+        <button @click="handleDownload('pdf')" :disabled="processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          Gerar PDF
         </button>
-        <button @click="handleDownload('markdown')" :disabled="downloading === 'markdown' || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ downloading === 'markdown' ? 'Gerando...' : 'Gerar Markdown' }}
+        <button @click="handleDownload('markdown')" :disabled="processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          Gerar Markdown
         </button>
-        <button @click="handleDownload('xlsx')" :disabled="downloading === 'xlsx' || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ downloading === 'xlsx' ? 'Gerando...' : 'Gerar XLSX' }}
+        <button @click="handleDownload('xlsx')" :disabled="processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          Gerar XLSX
         </button>
       </div>
       <p v-if="!isProcessed && !processing && !generating" class="mt-2 text-xs text-yellow-600">
@@ -328,7 +309,7 @@ onUnmounted(stopPolling)
         Processando com IA... Acompanhe o status aqui.
       </p>
       <p v-if="generating" class="mt-2 text-xs text-blue-600">
-        Gerando relatório...
+        Gerando relatório... A pagina atualiza automaticamente.
       </p>
       <div v-if="file.processingStatus === 'erro'" class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
         <p class="text-sm text-red-800">
@@ -362,9 +343,9 @@ onUnmounted(stopPolling)
       <ChatPanel v-if="isProcessed" :file-id="fileId" />
 
       <!-- Reports section -->
-      <div class="rounded-xl border border-gray-200 bg-white p-5">
+      <div class="flex h-[610px] flex-col rounded-xl border border-gray-200 bg-white p-5">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-gray-800">Relatorios Gerados</h2>
+          <h2 class="text-lg font-semibold text-gray-800">Relatorios</h2>
           <button @click="showUploadReport = !showUploadReport"
             class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -401,8 +382,8 @@ onUnmounted(stopPolling)
             </button>
           </div>
         </div>
-        <div class="space-y-2">
-          <div v-for="report in reports" :key="report.id"
+        <div class="flex-1 space-y-2 overflow-y-auto">
+          <div v-for="report in paginatedReports" :key="report.id"
             class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50 cursor-pointer"
             @click="router.push(`/reports/${report.id}`)">
             <div>
@@ -418,6 +399,11 @@ onUnmounted(stopPolling)
               </button>
             </div>
           </div>
+        </div>
+        <div v-if="reportTotalPages > 1" class="mt-3 flex items-center justify-center gap-2">
+          <button @click="reportPage--" :disabled="reportPage <= 1" class="rounded border px-2 py-0.5 text-xs disabled:opacity-50">Anterior</button>
+          <span class="text-xs text-gray-500">{{ reportPage }} / {{ reportTotalPages }}</span>
+          <button @click="reportPage++" :disabled="reportPage >= reportTotalPages" class="rounded border px-2 py-0.5 text-xs disabled:opacity-50">Proximo</button>
         </div>
       </div>
     </div>
@@ -476,12 +462,5 @@ onUnmounted(stopPolling)
       @confirm="handleDeleteReport"
       @cancel="reportToDelete = null" />
 
-    <ConfirmDialog v-if="showRetryConfirm"
-      title="Erro ao gerar relatorio"
-      message="O servidor retornou um erro interno (500). Isso pode ter acontecido por timeout ou sobrecarga. Deseja tentar novamente com mais tempo de espera?"
-      confirm-text="Tentar novamente"
-      :danger="false"
-      @confirm="confirmRetry"
-      @cancel="cancelRetry" />
   </div>
 </template>
