@@ -38,15 +38,25 @@ const reportTitle = ref('')
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 const fileId = Number(route.params.id)
+const reportPage = ref(1)
+const reportsPerPage = 5
 
 // Verificar se o arquivo foi processado pela IA (tem JSON cru e tratado)
 const jsonCruReport = computed(() => reports.value.find(r => r.fileType === 'json' && r.filePath?.includes('json_cru')))
 const jsonTratadoReport = computed(() => reports.value.find(r => r.fileType === 'json' && r.filePath?.includes('json_tratado')))
 const isProcessed = computed(() => !!jsonCruReport.value && !!jsonTratadoReport.value)
 
+// Paginacao de reports no detalhe do arquivo
+const reportTotalPages = computed(() => Math.max(1, Math.ceil(reports.value.length / reportsPerPage)))
+const paginatedReports = computed(() => {
+  const start = (reportPage.value - 1) * reportsPerPage
+  return reports.value.slice(start, start + reportsPerPage)
+})
+
 async function loadReports() {
   try {
-    reports.value = await listReports(fileId)
+    const result = await listReports(fileId, 1, 100)
+    reports.value = result.reports
   } catch {
     // Silently fail
   }
@@ -57,10 +67,10 @@ async function loadFile() {
   try {
     const [fileData, reportsData] = await Promise.all([
       getFileById(fileId),
-      listReports(fileId)
+      listReports(fileId, 1, 100)
     ])
     file.value = fileData
-    reports.value = reportsData || []
+    reports.value = reportsData?.reports || []
 
     // Iniciar polling se algum Report esta gerando ou arquivo esta processando
     if (file.value?.processingStatus === 'processando' || reports.value.some(r => r.status === 'gerando')) {
@@ -93,10 +103,10 @@ async function handleProcess() {
     try {
       const [fileData, reportsData] = await Promise.all([
         getFileById(fileId),
-        listReports(fileId)
+        listReports(fileId, 1, 100)
       ])
       file.value = fileData
-      reports.value = reportsData || []
+      reports.value = reportsData?.reports || []
     } catch {}
     stopPolling()
   }
@@ -171,10 +181,10 @@ function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
       try {
         const [fileData, reportsData] = await Promise.all([
           getFileById(fileId),
-          listReports(fileId)
+          listReports(fileId, 1, 100)
         ])
         file.value = fileData
-        reports.value = reportsData || []
+        reports.value = reportsData?.reports || []
       } catch {}
     })
 }
@@ -208,10 +218,10 @@ function startPolling() {
     try {
       const [fileData, reportsData] = await Promise.all([
         getFileById(fileId),
-        listReports(fileId)
+        listReports(fileId, 1, 100)
       ])
       file.value = fileData
-      reports.value = reportsData || []
+      reports.value = reportsData?.reports || []
 
       // Parar polling quando nada estiver processando/gerando
       const fileProcessing = file.value?.processingStatus === 'processando'
@@ -372,7 +382,7 @@ onUnmounted(stopPolling)
           </div>
         </div>
         <div class="space-y-2">
-          <div v-for="report in reports" :key="report.id"
+          <div v-for="report in paginatedReports" :key="report.id"
             class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50 cursor-pointer"
             @click="router.push(`/reports/${report.id}`)">
             <div>
@@ -388,6 +398,11 @@ onUnmounted(stopPolling)
               </button>
             </div>
           </div>
+        </div>
+        <div v-if="reportTotalPages > 1" class="mt-3 flex items-center justify-center gap-2">
+          <button @click="reportPage--" :disabled="reportPage <= 1" class="rounded border px-2 py-0.5 text-xs disabled:opacity-50">Anterior</button>
+          <span class="text-xs text-gray-500">{{ reportPage }} / {{ reportTotalPages }}</span>
+          <button @click="reportPage++" :disabled="reportPage >= reportTotalPages" class="rounded border px-2 py-0.5 text-xs disabled:opacity-50">Proximo</button>
         </div>
       </div>
     </div>

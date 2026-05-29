@@ -1,11 +1,14 @@
 import api from './client'
 import type { Report } from '@/types'
 
-export async function listReports(fileId?: number): Promise<Report[]> {
-  const params: Record<string, any> = {}
+export async function listReports(fileId?: number, page = 1, limit = 20): Promise<{ reports: Report[], pagination: { total: number, page: number, limit: number, pages: number } }> {
+  const params: Record<string, any> = { page, limit }
   if (fileId) params.fileId = fileId
   const { data } = await api.get('/reports', { params })
-  return data.reports || data || []
+  return {
+    reports: data.reports || [],
+    pagination: data.pagination || { total: 0, page: 1, limit, pages: 0 },
+  }
 }
 
 export async function getReportById(id: number): Promise<Report> {

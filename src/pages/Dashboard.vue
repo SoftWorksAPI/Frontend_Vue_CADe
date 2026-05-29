@@ -24,7 +24,7 @@ async function loadDashboard(showSpinner = true) {
     ])
 
     if (filesRes.status === 'fulfilled') files.value = filesRes.value.files || []
-    if (reportsRes.status === 'fulfilled') reports.value = (reportsRes.value || []).slice(0, 5)
+    if (reportsRes.status === 'fulfilled') reports.value = (reportsRes.value.reports || []).slice(0, 5)
     if (healthRes.status === 'fulfilled') aiStatus.value = healthRes.value.online ? 'online' : 'offline'
   } finally {
     if (showSpinner) loading.value = false

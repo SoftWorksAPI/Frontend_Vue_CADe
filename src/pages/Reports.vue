@@ -13,11 +13,15 @@ const notify = useNotificationStore()
 const reports = ref<Report[]>([])
 const loading = ref(true)
 const deleteTarget = ref<Report | null>(null)
+const page = ref(1)
+const totalPages = ref(1)
 
 async function loadReports(showSpinner = true) {
   if (showSpinner) loading.value = true
   try {
-    reports.value = await listReports()
+    const result = await listReports(undefined, page.value, 15)
+    reports.value = result.reports
+    totalPages.value = result.pagination.pages
   } catch {
     if (showSpinner) notify.error('Erro ao carregar relatorios')
   } finally {
@@ -116,6 +120,12 @@ onUnmounted(() => {
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div v-if="totalPages > 1" class="flex items-center justify-center gap-2">
+      <button @click="page--; loadReports()" :disabled="page <= 1" class="rounded border px-3 py-1 disabled:opacity-50">Anterior</button>
+      <span class="flex items-center px-2">{{ page }} / {{ totalPages }}</span>
+      <button @click="page++; loadReports()" :disabled="page >= totalPages" class="rounded border px-3 py-1 disabled:opacity-50">Proximo</button>
     </div>
 
     <ConfirmDialog v-if="deleteTarget" title="Deletar Relatorio"
