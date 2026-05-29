@@ -38,8 +38,8 @@ const reportTitle = ref('')
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 const fileId = Number(route.params.id)
+const reportsPerPage = ref(7)
 const reportPage = ref(1)
-const reportsPerPage = 5
 
 // Verificar se o arquivo foi processado pela IA (tem JSON cru e tratado)
 const jsonCruReport = computed(() => reports.value.find(r => r.fileType === 'json' && r.filePath?.includes('json_cru')))
@@ -47,11 +47,12 @@ const jsonTratadoReport = computed(() => reports.value.find(r => r.fileType === 
 const isProcessed = computed(() => !!jsonCruReport.value && !!jsonTratadoReport.value)
 
 // Paginacao de reports no detalhe do arquivo
-const reportTotalPages = computed(() => Math.max(1, Math.ceil(reports.value.length / reportsPerPage)))
+const reportTotalPages = computed(() => Math.max(1, Math.ceil(reports.value.length / reportsPerPage.value)))
 const paginatedReports = computed(() => {
-  const start = (reportPage.value - 1) * reportsPerPage
-  return reports.value.slice(start, start + reportsPerPage)
+  const start = (reportPage.value - 1) * reportsPerPage.value
+  return reports.value.slice(start, start + reportsPerPage.value)
 })
+
 
 async function loadReports() {
   try {
@@ -342,9 +343,9 @@ onUnmounted(stopPolling)
       <ChatPanel v-if="isProcessed" :file-id="fileId" />
 
       <!-- Reports section -->
-      <div class="rounded-xl border border-gray-200 bg-white p-5">
+      <div class="flex h-[610px] flex-col rounded-xl border border-gray-200 bg-white p-5">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-gray-800">Relatorios Gerados</h2>
+          <h2 class="text-lg font-semibold text-gray-800">Relatorios</h2>
           <button @click="showUploadReport = !showUploadReport"
             class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -381,7 +382,7 @@ onUnmounted(stopPolling)
             </button>
           </div>
         </div>
-        <div class="space-y-2">
+        <div class="flex-1 space-y-2 overflow-y-auto">
           <div v-for="report in paginatedReports" :key="report.id"
             class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50 cursor-pointer"
             @click="router.push(`/reports/${report.id}`)">

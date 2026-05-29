@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { listFiles, uploadFile, deleteFile } from '@/api/files'
 import { useNotificationStore } from '@/stores/notifications'
+import { useAutoPaginate } from '@/composables/useAutoPaginate'
 import FileUpload from '@/components/FileUpload.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -10,6 +11,7 @@ import type { FileRecord } from '@/types'
 
 const router = useRouter()
 const notify = useNotificationStore()
+const { perPage } = useAutoPaginate(52, 220)
 
 const files = ref<FileRecord[]>([])
 const loading = ref(true)
@@ -24,7 +26,7 @@ const deleteTarget = ref<FileRecord | null>(null)
 async function loadFiles(showSpinner = true) {
   if (showSpinner) loading.value = true
   try {
-    const data = await listFiles(page.value, 10)
+    const data = await listFiles(page.value, perPage.value)
     files.value = data.files || []
     totalPages.value = data.pagination?.pages || 1
   } catch {
@@ -74,6 +76,12 @@ function formatDate(date: string): string {
 }
 
 let pollInterval: ReturnType<typeof setInterval> | null = null
+
+// Recarregar quando o numero de itens por pagina mudar (resize)
+watch(perPage, () => {
+  page.value = 1
+  loadFiles(false)
+})
 
 onMounted(() => {
   loadFiles()

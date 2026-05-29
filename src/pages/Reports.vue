@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { listReports, deleteReport, downloadReport } from '@/api/reports'
 import { useNotificationStore } from '@/stores/notifications'
+import { useAutoPaginate } from '@/composables/useAutoPaginate'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import type { Report } from '@/types'
 
 const router = useRouter()
 const notify = useNotificationStore()
+const { perPage } = useAutoPaginate(52, 220)
 
 const reports = ref<Report[]>([])
 const loading = ref(true)
@@ -19,7 +21,7 @@ const totalPages = ref(1)
 async function loadReports(showSpinner = true) {
   if (showSpinner) loading.value = true
   try {
-    const result = await listReports(undefined, page.value, 15)
+    const result = await listReports(undefined, page.value, perPage.value)
     reports.value = result.reports
     totalPages.value = result.pagination.pages
   } catch {
@@ -28,6 +30,12 @@ async function loadReports(showSpinner = true) {
     if (showSpinner) loading.value = false
   }
 }
+
+// Recarregar quando o numero de itens por pagina mudar (resize)
+watch(perPage, () => {
+  page.value = 1
+  loadReports(false)
+})
 
 async function handleDelete() {
   if (!deleteTarget.value) return
