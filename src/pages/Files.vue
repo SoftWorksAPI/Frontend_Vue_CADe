@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { listFiles, uploadFile, deleteFile } from '@/api/files'
 import { useNotificationStore } from '@/stores/notifications'
 import { useAutoPaginate } from '@/composables/useAutoPaginate'
+import { useSSE } from '@/composables/useSSE'
 import FileUpload from '@/components/FileUpload.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -75,25 +76,16 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('pt-BR')
 }
 
-let pollInterval: ReturnType<typeof setInterval> | null = null
-
 // Recarregar quando o numero de itens por pagina mudar (resize)
 watch(perPage, () => {
   page.value = 1
   loadFiles(false)
 })
 
-onMounted(() => {
-  loadFiles()
-  pollInterval = setInterval(() => loadFiles(false), 10000)
-})
+// SSE: atualizar lista quando houver mudancas
+useSSE(() => loadFiles(false))
 
-onUnmounted(() => {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
-  }
-})
+onMounted(loadFiles)
 </script>
 
 <template>
