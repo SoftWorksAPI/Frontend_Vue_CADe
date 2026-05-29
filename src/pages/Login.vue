@@ -29,7 +29,8 @@ async function handleLogin() {
   <div class="flex min-h-screen items-center justify-center bg-gray-100">
     <div class="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
       <div class="mb-8 text-center">
-        <h1 class="text-3xl font-bold text-[var(--color-primary)]">CADe</h1>
+        <div class="mx-auto h-58 w-58 bg-[var(--color-primary)]"
+             style="-webkit-mask: url('/Logo.svg') center/contain no-repeat; mask: url('/Logo.svg') center/contain no-repeat;"></div>
         <p class="mt-1 text-sm text-gray-500">Automacao de Documentacoes Tecnicas</p>
       </div>
       <form @submit.prevent="handleLogin" class="space-y-5">

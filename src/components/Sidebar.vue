@@ -19,7 +19,8 @@ const adminItems = [
 <template>
   <aside class="flex w-64 flex-col bg-[var(--color-primary)] text-white">
     <div class="flex h-16 items-center justify-center border-b border-white/10">
-      <h1 class="text-xl font-bold tracking-wider">CADe</h1>
+      <div class="h-30 w-30 bg-contain bg-center bg-no-repeat brightness-0 invert"
+           style="background-image: url('/Logo.svg')"></div>
     </div>
     <nav class="flex-1 space-y-1 px-3 py-4">
       <router-link

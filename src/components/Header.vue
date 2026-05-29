@@ -14,7 +14,8 @@ function handleLogout() {
 <template>
   <header class="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
     <div>
-      <h2 class="text-lg font-semibold text-gray-800">CADe</h2>
+      <!-- <div class="h-30 w-30 bg-[var(--color-primary)]"
+           style="-webkit-mask: url('/Logo.svg') center/contain no-repeat; mask: url('/Logo.svg') center/contain no-repeat;"></div> -->
     </div>
     <div class="flex items-center gap-4">
       <div class="text-right">
