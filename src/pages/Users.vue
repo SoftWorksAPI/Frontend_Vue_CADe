@@ -43,7 +43,19 @@ async function loadUsers() {
   }
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 async function handleCreate() {
+  if (!isValidEmail(newEmail.value)) {
+    notify.error('Email invalido')
+    return
+  }
+  if (newPassword.value.length < 8) {
+    notify.error('A senha deve ter no minimo 8 caracteres')
+    return
+  }
   try {
     await register(newEmail.value, newPassword.value, newName.value)
     notify.success('Usuario criado com sucesso')
@@ -76,6 +88,10 @@ async function handleUpdate() {
 
     // Se preencheu nova senha, alterar separadamente
     if (editNewPassword.value) {
+      if (editNewPassword.value.length < 8) {
+        notify.error('A senha deve ter no minimo 8 caracteres')
+        return
+      }
       await changePassword(editingUser.value.id, editNewPassword.value)
     }
 
@@ -134,7 +150,7 @@ onMounted(loadUsers)
         <div>
           <label class="block text-sm font-medium text-gray-700">Senha</label>
           <div class="relative mt-1">
-            <input v-model="newPassword" :type="showCreatePassword ? 'text' : 'password'" required class="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-[var(--color-primary)] focus:outline-none" />
+            <input v-model="newPassword" :type="showCreatePassword ? 'text' : 'password'" required minlength="8" class="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-[var(--color-primary)] focus:outline-none" />
             <button type="button"
               class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
               @mousedown="showCreatePassword = true"
@@ -175,7 +191,7 @@ onMounted(loadUsers)
           <div>
             <label class="block text-sm font-medium text-gray-700">Nova senha <span class="font-normal text-gray-400">(deixe vazio para nao alterar)</span></label>
             <div class="relative mt-1">
-              <input v-model="editNewPassword" :type="showEditPassword ? 'text' : 'password'" minlength="6" class="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-[var(--color-primary)] focus:outline-none" placeholder="Min. 6 caracteres" />
+              <input v-model="editNewPassword" :type="showEditPassword ? 'text' : 'password'" minlength="8" class="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-[var(--color-primary)] focus:outline-none" placeholder="Min. 8 caracteres" />
               <button type="button"
                 class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
                 @mousedown="showEditPassword = true"

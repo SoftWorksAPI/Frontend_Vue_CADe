@@ -16,6 +16,10 @@ const confirmPassword = ref('')
 const loading = ref(false)
 
 async function handleChangePassword() {
+  if (newPassword.value.length < 8) {
+    notify.error('A senha deve ter no minimo 8 caracteres')
+    return
+  }
   if (newPassword.value !== confirmPassword.value) {
     notify.error('As senhas nao coincidem')
     return
@@ -77,7 +81,7 @@ async function handleChangePassword() {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700">Nova Senha</label>
-          <input v-model="newPassword" type="password" required class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none" />
+          <input v-model="newPassword" type="password" required minlength="8" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700">Confirmar Nova Senha</label>

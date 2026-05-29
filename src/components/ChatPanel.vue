@@ -207,6 +207,7 @@ function handleKeydown(e: KeyboardEvent) {
     </div>
 
     <!-- Input -->
+    <p class="text-[11px] text-gray-400 mb-1">A IA pode cometer erros. Verifique informacoes importantes.</p>
     <div class="flex items-end gap-2">
       <div class="relative flex-1">
         <textarea

@@ -12,7 +12,15 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 async function handleLogin() {
+  if (!isValidEmail(email.value)) {
+    notify.error('Email invalido')
+    return
+  }
   loading.value = true
   try {
     await auth.login(email.value, password.value)
