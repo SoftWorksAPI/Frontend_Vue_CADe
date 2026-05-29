@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getFileById, deleteFile } from '@/api/files'
+import { getFileById, deleteFile, replaceFile } from '@/api/files'
 import { listReports, createReport, deleteReport, updateReportTitle } from '@/api/reports'
 import { processFile, generatePdf, generateMarkdown, generateXlsx } from '@/api/processing'
 import { useNotificationStore } from '@/stores/notifications'
@@ -10,6 +10,7 @@ import MarkdownViewer from '@/components/MarkdownViewer.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
+import FileUpload from '@/components/FileUpload.vue'
 import type { FileRecord, Report, ProcessResult } from '@/types'
 
 const route = useRoute()
@@ -35,6 +36,8 @@ const uploadingReport = ref(false)
 const reportToDelete = ref<Report | null>(null)
 const reportFile = ref<File | null>(null)
 const reportTitle = ref('')
+const showReplaceDxf = ref(false)
+const replacingDxf = ref(false)
 
 // Edicao de titulo de report
 const editingReportId = ref<number | null>(null)
@@ -87,6 +90,22 @@ async function loadFile() {
     router.push('/files')
   } finally {
     loading.value = false
+  }
+}
+
+async function handleReplaceDxf(newFile: File) {
+  replacingDxf.value = true
+  try {
+    await replaceFile(fileId, newFile)
+    notify.success('Arquivo DXF atualizado com sucesso')
+    showReplaceDxf.value = false
+    // Recarregar dados do arquivo
+    file.value = await getFileById(fileId)
+    await loadReports()
+  } catch (err: any) {
+    notify.error(err.response?.data?.message || 'Erro ao atualizar arquivo')
+  } finally {
+    replacingDxf.value = false
   }
 }
 
@@ -301,6 +320,13 @@ onMounted(loadFile)
         <button @click="handleDownload('xlsx')" :disabled="processing || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
           Gerar XLSX
         </button>
+        <button @click="showReplaceDxf = !showReplaceDxf" :disabled="replacingDxf"
+          class="rounded-lg border border-orange-300 px-4 py-2.5 text-sm font-medium text-orange-700 hover:bg-orange-50 disabled:opacity-50">
+          {{ replacingDxf ? 'Atualizando...' : 'Atualizar DXF' }}
+        </button>
+      </div>
+      <div v-if="showReplaceDxf" class="mt-3">
+        <FileUpload accept=".dxf" label="Selecionar novo arquivo DXF" @file-selected="handleReplaceDxf" />
       </div>
       <p v-if="!isProcessed && !processing && !generating" class="mt-2 text-xs text-yellow-600">
         Processe o arquivo com IA antes de gerar relatórios.

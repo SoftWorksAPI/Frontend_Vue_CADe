@@ -26,6 +26,15 @@ export async function deleteFile(id: number) {
   return data
 }
 
+export async function replaceFile(fileId: number, file: File): Promise<FileRecord> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await api.patch(`/files/${fileId}/replace`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  return data.file || data
+}
+
 export async function addMarkdown(id: number, markdownContent: string) {
   const { data } = await api.patch(`/files/${id}/markdown`, { markdownContent })
   return data
