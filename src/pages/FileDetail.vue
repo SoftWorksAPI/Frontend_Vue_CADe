@@ -26,7 +26,6 @@ const localGenerating = ref(false)
 const processing = computed(() => localProcessing.value || file.value?.processingStatus === 'processando')
 const generating = computed(() => localGenerating.value || file.value?.processingStatus === 'gerando')
 const showDeleteConfirm = ref(false)
-const downloading = ref<string | null>(null)
 const showRawJson = ref(false)
 const showTreatedJson = ref(false)
 const showUploadReport = ref(false)
@@ -34,8 +33,6 @@ const uploadingReport = ref(false)
 const reportToDelete = ref<Report | null>(null)
 const reportFile = ref<File | null>(null)
 const reportTitle = ref('')
-const showRetryConfirm = ref(false)
-const retryType = ref<'pdf' | 'markdown' | 'xlsx' | null>(null)
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -153,62 +150,31 @@ function getMemorialData(): any {
   }
 }
 
-async function handleDownload(type: 'pdf' | 'markdown' | 'xlsx', isRetry = false) {
-  downloading.value = type
+function handleDownload(type: 'pdf' | 'markdown' | 'xlsx') {
+  // Fire-and-forget: dispara a geracao em background
   localGenerating.value = true
-  const timeoutMs = isRetry ? 600000 : undefined // 10min no retry, 5min default
-  try {
-    let blob: Blob
-    let filename: string
-    if (type === 'pdf') {
-      blob = await generatePdf(fileId, timeoutMs)
-      filename = `${file.value?.originalName || 'relatorio'}.pdf`
-    } else if (type === 'markdown') {
-      blob = await generateMarkdown(fileId, timeoutMs)
-      filename = `${file.value?.originalName || 'relatorio'}.md`
-    } else {
-      blob = await generateXlsx(fileId, timeoutMs)
-      filename = `${file.value?.originalName || 'relatorio'}.xlsx`
-    }
+  notify.info(`Gerando ${type.toUpperCase()}... Acompanhe o status na pagina de Relatorios.`)
 
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-    notify.success(`Relatorio ${type.toUpperCase()} gerado com sucesso`)
-    await loadReports()
-    // Recarregar arquivo para atualizar processingStatus
-    try { file.value = await getFileById(fileId) } catch {}
-  } catch (err: any) {
-    const status = err?.response?.status
-    if (status === 500 && !isRetry) {
-      // Mostrar dialog de retry
-      retryType.value = type
-      showRetryConfirm.value = true
-    } else {
-      notify.error(err?.response?.data?.message || err.message || `Erro ao gerar ${type.toUpperCase()}`)
-    }
-  } finally {
-    downloading.value = null
-    localGenerating.value = false
-  }
-}
-
-async function confirmRetry() {
-  if (retryType.value) {
-    showRetryConfirm.value = false
-    notify.info('Tentando novamente com timeout estendido...')
-    await handleDownload(retryType.value, true)
-    retryType.value = null
-  }
-}
-
-function cancelRetry() {
-  showRetryConfirm.value = false
-  retryType.value = null
-  notify.info('Geracao de relatorio cancelada')
+  const generateFn = type === 'pdf' ? generatePdf : type === 'markdown' ? generateMarkdown : generateXlsx
+  generateFn(fileId)
+    .then(async () => {
+      notify.success(`Relatorio ${type.toUpperCase()} gerado com sucesso`)
+    })
+    .catch((err: any) => {
+      notify.error(err?.response?.data?.message || `Erro ao gerar ${type.toUpperCase()}`)
+    })
+    .finally(async () => {
+      localGenerating.value = false
+      // Recarregar para atualizar status do servidor
+      try {
+        const [fileData, reportsData] = await Promise.all([
+          getFileById(fileId),
+          listReports(fileId)
+        ])
+        file.value = fileData
+        reports.value = reportsData || []
+      } catch {}
+    })
 }
 
 async function handleDelete() {
@@ -311,14 +277,14 @@ onUnmounted(stopPolling)
           <div v-else class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
           {{ processing ? 'Processando...' : 'Processar com IA' }}
         </button>
-        <button @click="handleDownload('pdf')" :disabled="downloading === 'pdf' || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ downloading === 'pdf' ? 'Gerando...' : 'Gerar PDF' }}
+        <button @click="handleDownload('pdf')" :disabled="generating || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ generating ? 'Gerando...' : 'Gerar PDF' }}
         </button>
-        <button @click="handleDownload('markdown')" :disabled="downloading === 'markdown' || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ downloading === 'markdown' ? 'Gerando...' : 'Gerar Markdown' }}
+        <button @click="handleDownload('markdown')" :disabled="generating || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ generating ? 'Gerando...' : 'Gerar Markdown' }}
         </button>
-        <button @click="handleDownload('xlsx')" :disabled="downloading === 'xlsx' || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ downloading === 'xlsx' ? 'Gerando...' : 'Gerar XLSX' }}
+        <button @click="handleDownload('xlsx')" :disabled="generating || !isProcessed" :title="!isProcessed ? 'Processe com IA primeiro' : ''" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ generating ? 'Gerando...' : 'Gerar XLSX' }}
         </button>
       </div>
       <p v-if="!isProcessed && !processing && !generating" class="mt-2 text-xs text-yellow-600">
@@ -476,12 +442,5 @@ onUnmounted(stopPolling)
       @confirm="handleDeleteReport"
       @cancel="reportToDelete = null" />
 
-    <ConfirmDialog v-if="showRetryConfirm"
-      title="Erro ao gerar relatorio"
-      message="O servidor retornou um erro interno (500). Isso pode ter acontecido por timeout ou sobrecarga. Deseja tentar novamente com mais tempo de espera?"
-      confirm-text="Tentar novamente"
-      :danger="false"
-      @confirm="confirmRetry"
-      @cancel="cancelRetry" />
   </div>
 </template>
