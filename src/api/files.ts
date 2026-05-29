@@ -1,9 +1,10 @@
 import api from './client'
 import type { FileRecord, PaginatedResponse } from '@/types'
 
-export async function uploadFile(file: File, description?: string): Promise<FileRecord> {
+export async function uploadFile(file: File, title: string, description?: string): Promise<FileRecord> {
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('title', title)
   if (description) formData.append('description', description)
   const { data } = await api.post('/files/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }

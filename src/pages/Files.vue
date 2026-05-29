@@ -20,6 +20,7 @@ const page = ref(1)
 const totalPages = ref(1)
 const showUpload = ref(false)
 const uploading = ref(false)
+const title = ref('')
 const description = ref('')
 const selectedFile = ref<File | null>(null)
 const deleteTarget = ref<FileRecord | null>(null)
@@ -64,12 +65,17 @@ async function loadFiles(showSpinner = true) {
 
 async function handleUpload() {
   if (!selectedFile.value) return
+  if (!title.value.trim()) {
+    notify.error('O titulo e obrigatorio')
+    return
+  }
   uploading.value = true
   try {
-    await uploadFile(selectedFile.value, description.value || undefined)
+    await uploadFile(selectedFile.value, title.value.trim(), description.value || undefined)
     notify.success('Projeto enviado com sucesso')
     showUpload.value = false
     selectedFile.value = null
+    title.value = ''
     description.value = ''
     await loadFiles()
   } catch (err: any) {
@@ -130,14 +136,18 @@ onMounted(loadFiles)
       <h2 class="mb-4 text-lg font-semibold">Upload de Projeto</h2>
       <FileUpload accept=".dxf" label="Arraste um arquivo DXF ou clique para selecionar" description="Apenas arquivos .dxf" @file-selected="(f) => selectedFile = f" />
       <div class="mt-4">
+        <label class="block text-sm font-medium text-gray-700">Titulo do Projeto <span class="text-red-500">*</span></label>
+        <input v-model="title" type="text" required class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none" placeholder="Ex: Residencia Silva - Planta Baixa" />
+      </div>
+      <div class="mt-4">
         <label class="block text-sm font-medium text-gray-700">Descricao (opcional)</label>
         <input v-model="description" type="text" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none" placeholder="Ex: Planta baixa - Pavimento 1" />
       </div>
       <div class="mt-4 flex gap-3">
-        <button @click="handleUpload" :disabled="!selectedFile || uploading" class="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+        <button @click="handleUpload" :disabled="!selectedFile || !title.trim() || uploading" class="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           {{ uploading ? 'Enviando...' : 'Enviar' }}
         </button>
-        <button @click="showUpload = false" class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+        <button @click="showUpload = false; title = ''; description = ''" class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
       </div>
     </div>
 
