@@ -37,7 +37,7 @@ export interface Report {
   review: string | null
   createdAt: string
   updatedAt: string
-  File?: { id: number; originalName: string; filename: string; filePath?: string }
+  File?: { id: number; title: string | null; originalName: string; filename: string; filePath?: string }
   User?: User
 }
 

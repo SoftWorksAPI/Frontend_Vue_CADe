@@ -139,7 +139,7 @@ onMounted(loadReports)
               </div>
               <span v-else class="truncate block max-w-[200px]">{{ report.title }}</span>
             </td>
-            <td class="px-4 py-3 text-gray-600">{{ report.File?.originalName || '-' }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ report.File?.title || report.File?.originalName || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ report.User?.name || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ report.fileType?.toUpperCase() || '-' }}</td>
             <td class="px-4 py-3"><StatusBadge v-if="report.confianca" :status="report.confianca" /></td>

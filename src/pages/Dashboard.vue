@@ -12,6 +12,8 @@ const auth = useAuthStore()
 
 const files = ref<FileRecord[]>([])
 const reports = ref<Report[]>([])
+const totalFiles = ref(0)
+const totalReports = ref(0)
 const aiStatus = ref<string>('offline')
 const loading = ref(true)
 
@@ -20,12 +22,18 @@ async function loadDashboard(showSpinner = true) {
   try {
     const [filesRes, reportsRes, healthRes] = await Promise.allSettled([
       listFiles(1, 5),
-      listReports(),
+      listReports(undefined, 1, 5),
       aiHealth()
     ])
 
-    if (filesRes.status === 'fulfilled') files.value = filesRes.value.files || []
-    if (reportsRes.status === 'fulfilled') reports.value = (reportsRes.value.reports || []).slice(0, 5)
+    if (filesRes.status === 'fulfilled') {
+      files.value = filesRes.value.files || []
+      totalFiles.value = filesRes.value.pagination?.total || 0
+    }
+    if (reportsRes.status === 'fulfilled') {
+      reports.value = reportsRes.value.reports || []
+      totalReports.value = reportsRes.value.pagination?.total || 0
+    }
     if (healthRes.status === 'fulfilled') aiStatus.value = healthRes.value.online ? 'online' : 'offline'
   } finally {
     if (showSpinner) loading.value = false
@@ -55,11 +63,11 @@ function formatDate(date: string): string {
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div class="rounded-xl border border-gray-200 bg-white p-5">
         <p class="text-sm font-medium text-gray-500">Projetos</p>
-        <p class="mt-1 text-3xl font-bold text-[var(--color-primary)]">{{ files.length }}</p>
+        <p class="mt-1 text-3xl font-bold text-[var(--color-primary)]">{{ totalFiles }}</p>
       </div>
       <div class="rounded-xl border border-gray-200 bg-white p-5">
         <p class="text-sm font-medium text-gray-500">Relatorios</p>
-        <p class="mt-1 text-3xl font-bold text-[var(--color-primary)]">{{ reports.length }}</p>
+        <p class="mt-1 text-3xl font-bold text-[var(--color-primary)]">{{ totalReports }}</p>
       </div>
       <div class="rounded-xl border border-gray-200 bg-white p-5">
         <p class="text-sm font-medium text-gray-500">Status IA</p>
@@ -104,7 +112,7 @@ function formatDate(date: string): string {
             class="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50">
             <div>
               <p class="text-sm font-medium text-gray-800">{{ report.title }}</p>
-              <p class="text-xs text-gray-400">{{ formatDate(report.createdAt) }}</p>
+              <p class="text-xs text-gray-400">{{ report.File?.title || report.File?.originalName || '-' }} - {{ formatDate(report.createdAt) }}</p>
             </div>
             <StatusBadge v-if="report.confianca" :status="report.confianca" />
           </router-link>

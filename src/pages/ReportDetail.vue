@@ -91,8 +91,12 @@ onMounted(loadReport)
     <!-- Info -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
       <div class="rounded-lg border border-gray-200 bg-white p-4">
-        <p class="text-xs font-medium text-gray-500">Arquivo</p>
-        <p class="mt-1 text-sm font-semibold">{{ report.File?.originalName || '-' }}</p>
+        <p class="text-xs font-medium text-gray-500">Projeto</p>
+        <p class="mt-1 text-sm font-semibold">{{ report.File?.title || report.File?.originalName || '-' }}</p>
+      </div>
+      <div v-if="report.File?.title" class="rounded-lg border border-gray-200 bg-white p-4">
+        <p class="text-xs font-medium text-gray-500">Arquivo original</p>
+        <p class="mt-1 text-sm font-semibold truncate">{{ report.File?.originalName }}</p>
       </div>
       <div class="rounded-lg border border-gray-200 bg-white p-4">
         <p class="text-xs font-medium text-gray-500">Formato</p>
