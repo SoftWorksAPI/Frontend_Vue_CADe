@@ -3,10 +3,9 @@ import type { HealthStatus, RagStatus } from '@/types'
 
 export async function aiHealth(): Promise<HealthStatus> {
   const { data } = await api.get('/system/ai/health')
-  // Backend retorna { status: 'online' } para admin ou { online: true } para usuario comum
-  // Normalizamos para { online: boolean }
   return {
     online: data.online ?? data.status === 'online',
+    provider: data.provider,
     modelo: data.modelo,
     tempo_resposta_ms: data.tempo_resposta_ms,
     erro: data.erro,

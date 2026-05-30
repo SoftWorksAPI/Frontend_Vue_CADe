@@ -96,6 +96,7 @@ export interface ProcessResult {
 
 export interface HealthStatus {
   online: boolean
+  provider?: string
   modelo?: string
   tempo_resposta_ms?: number
   erro?: string
