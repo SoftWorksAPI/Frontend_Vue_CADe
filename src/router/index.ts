@@ -58,6 +58,12 @@ const router = createRouter({
       component: () => import('@/pages/SystemHealth.vue')
     },
     {
+      path: '/ai-config',
+      name: 'ai-config',
+      component: () => import('@/pages/AIConfig.vue'),
+      meta: { admin: true }
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/pages/Profile.vue')

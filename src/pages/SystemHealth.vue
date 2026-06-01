@@ -58,9 +58,13 @@ onMounted(loadHealth)
           <StatusBadge v-if="ai" :status="ai.online ? 'online' : 'offline'" />
         </div>
         <div v-if="ai?.online" class="space-y-3">
+          <div v-if="ai.provider" class="flex justify-between">
+            <span class="text-sm text-gray-500">Provider</span>
+            <span class="text-sm font-medium capitalize">{{ ai.provider }}</span>
+          </div>
           <div v-if="ai.modelo" class="flex justify-between">
             <span class="text-sm text-gray-500">Modelo</span>
-            <span class="text-sm font-medium">{{ ai.modelo }}</span>
+            <span class="text-sm font-medium font-mono text-xs">{{ ai.modelo }}</span>
           </div>
           <div v-if="ai.tempo_resposta_ms" class="flex justify-between">
             <span class="text-sm text-gray-500">Tempo de resposta</span>
