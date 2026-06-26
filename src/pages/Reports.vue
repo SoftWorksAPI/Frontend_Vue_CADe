@@ -1,0 +1,179 @@
+<script setup lang="ts">
+import { ref, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { listReports, deleteReport, downloadReport, updateReportTitle } from '@/api/reports'
+import { useNotificationStore } from '@/stores/notifications'
+import { useAutoPaginate } from '@/composables/useAutoPaginate'
+import { useSSE } from '@/composables/useSSE'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
+import type { Report } from '@/types'
+
+const router = useRouter()
+const notify = useNotificationStore()
+const { perPage } = useAutoPaginate(52, 220)
+
+const reports = ref<Report[]>([])
+const loading = ref(true)
+const deleteTarget = ref<Report | null>(null)
+const page = ref(1)
+const totalPages = ref(1)
+
+// Edicao de titulo
+const editingReportId = ref<number | null>(null)
+const editingTitle = ref('')
+
+async function loadReports(showSpinner = true) {
+  if (showSpinner) loading.value = true
+  try {
+    const result = await listReports(undefined, page.value, perPage.value)
+    reports.value = result.reports
+    totalPages.value = result.pagination.pages
+  } catch {
+    if (showSpinner) notify.error('Erro ao carregar relatorios')
+  } finally {
+    if (showSpinner) loading.value = false
+  }
+}
+
+// Recarregar quando o numero de itens por pagina mudar (resize)
+watch(perPage, () => {
+  page.value = 1
+  loadReports(false)
+})
+
+async function handleDelete() {
+  if (!deleteTarget.value) return
+  try {
+    await deleteReport(deleteTarget.value.id)
+    notify.success('Relatorio deletado com sucesso')
+    deleteTarget.value = null
+    await loadReports()
+  } catch {
+    notify.error('Erro ao deletar relatorio')
+  }
+}
+
+function startEditTitle(report: Report) {
+  editingReportId.value = report.id
+  editingTitle.value = report.title
+}
+
+function cancelEditTitle() {
+  editingReportId.value = null
+  editingTitle.value = ''
+}
+
+async function saveEditTitle(report: Report) {
+  if (!editingTitle.value.trim()) return
+  try {
+    await updateReportTitle(report.id, editingTitle.value.trim())
+    report.title = editingTitle.value.trim()
+    notify.success('Titulo atualizado')
+    editingReportId.value = null
+    editingTitle.value = ''
+  } catch (err: any) {
+    notify.error(err.response?.data?.message || 'Erro ao atualizar titulo')
+  }
+}
+
+const downloadingId = ref<number | null>(null)
+
+async function handleDownload(report: Report) {
+  downloadingId.value = report.id
+  try {
+    await downloadReport(report.id, report.title)
+    notify.success('Download concluido')
+  } catch {
+    notify.error('Erro ao baixar relatorio')
+  } finally {
+    downloadingId.value = null
+  }
+}
+
+function formatDate(date: string): string {
+  return new Date(date).toLocaleDateString('pt-BR')
+}
+
+// SSE: atualizar lista quando houver mudancas
+useSSE(() => loadReports(false))
+
+onMounted(loadReports)
+</script>
+
+<template>
+  <div class="space-y-6">
+    <h1 class="text-2xl font-bold text-gray-900">Relatorios</h1>
+
+    <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div v-if="loading" class="flex items-center justify-center py-12">
+        <div class="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent"></div>
+      </div>
+      <table v-else class="w-full text-left text-sm">
+        <thead class="bg-gray-50 text-xs uppercase text-gray-600">
+          <tr>
+            <th class="px-4 py-3 font-semibold">Titulo</th>
+            <th class="px-4 py-3 font-semibold">Projeto</th>
+            <th class="px-4 py-3 font-semibold">Enviado por</th>
+            <th class="px-4 py-3 font-semibold">Formato</th>
+            <th class="px-4 py-3 font-semibold">Confianca</th>
+            <th class="px-4 py-3 font-semibold">Status</th>
+            <th class="px-4 py-3 font-semibold">Data</th>
+            <th class="px-4 py-3 font-semibold">Acoes</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr v-if="reports.length === 0">
+            <td colspan="8" class="px-4 py-8 text-center text-gray-400">Nenhum relatorio encontrado</td>
+          </tr>
+          <tr v-for="report in reports" :key="report.id" class="cursor-pointer transition-colors hover:bg-gray-50"
+            @click="router.push(`/reports/${report.id}`)">
+            <td class="px-4 py-3 font-medium text-gray-800">
+              <div v-if="editingReportId === report.id" class="flex items-center gap-1" @click.stop>
+                <input v-model="editingTitle"
+                  @keyup.enter="saveEditTitle(report)"
+                  @keyup.escape="cancelEditTitle"
+                  class="w-full rounded border border-blue-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                  autofocus />
+                <button @click="saveEditTitle(report)" class="rounded px-1.5 py-0.5 text-xs text-green-600 hover:bg-green-50">OK</button>
+              </div>
+              <span v-else class="truncate block max-w-[200px]">{{ report.title }}</span>
+            </td>
+            <td class="px-4 py-3 text-gray-600">{{ report.File?.title || report.File?.originalName || '-' }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ report.User?.name || '-' }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ report.fileType?.toUpperCase() || '-' }}</td>
+            <td class="px-4 py-3"><StatusBadge v-if="report.confianca" :status="report.confianca" /></td>
+            <td class="px-4 py-3"><StatusBadge :status="report.status" /></td>
+            <td class="px-4 py-3 text-gray-600">{{ formatDate(report.createdAt) }}</td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-1">
+                <button v-if="report.status !== 'gerando'" @click.stop="startEditTitle(report)"
+                  class="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                  title="Editar titulo">
+                  Editar
+                </button>
+                <button v-if="report.filePath && (report.fileType === 'pdf' || report.fileType === 'xlsx' || report.fileType === 'md')"
+                  @click.stop="handleDownload(report)"
+                  :disabled="downloadingId === report.id"
+                  class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  title="Baixar arquivo">
+                  {{ downloadingId === report.id ? 'Baixando...' : 'Download' }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div v-if="totalPages > 1" class="flex items-center justify-center gap-2">
+      <button @click="page--; loadReports()" :disabled="page <= 1" class="rounded border px-3 py-1 disabled:opacity-50">Anterior</button>
+      <span class="flex items-center px-2">{{ page }} / {{ totalPages }}</span>
+      <button @click="page++; loadReports()" :disabled="page >= totalPages" class="rounded border px-3 py-1 disabled:opacity-50">Proximo</button>
+    </div>
+
+    <ConfirmDialog v-if="deleteTarget" title="Deletar Relatorio"
+      :message="`Tem certeza que deseja deletar '${deleteTarget.title}'?`" confirm-text="Deletar" :danger="true"
+      @confirm="handleDelete" @cancel="deleteTarget = null" />
+  </div>
+</template>
